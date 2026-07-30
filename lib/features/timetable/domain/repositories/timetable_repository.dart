@@ -34,13 +34,30 @@ abstract interface class TimetableRepository {
 
   Future<Result<void>> replacePeriods(List<Period> periods);
 
-  /// Records what happened to one class on one date, or clears the record when
-  /// [status] is [ClassSessionStatus.scheduled].
+  /// Records what happened to one class on one date.
+  ///
+  /// A `null` [note] leaves any existing note untouched — changing a status must
+  /// never silently discard what the teacher wrote.
+  ///
+  /// The record is removed only when the status is
+  /// [ClassSessionStatus.scheduled] *and* there is no note, preserving the
+  /// "no record means scheduled" invariant while still allowing a note to stand
+  /// on its own.
   Future<Result<void>> setSessionStatus({
     required TimetableEntry entry,
     required DateTime date,
     required ClassSessionStatus status,
-    String note,
+    String? note,
+  });
+
+  /// Writes a note against one class on one date, keeping its current status.
+  ///
+  /// Delegates to [setSessionStatus] so there is exactly one place that decides
+  /// when a record is created or removed.
+  Future<Result<void>> setSessionNote({
+    required TimetableEntry entry,
+    required DateTime date,
+    required String note,
   });
 
   /// Removes every entry and session, queueing a delete for each.

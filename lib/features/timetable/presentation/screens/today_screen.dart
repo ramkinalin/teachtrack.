@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +17,7 @@ import '../../domain/schedule_resolver.dart';
 import '../providers/timetable_providers.dart';
 import '../widgets/current_class_card.dart';
 import '../widgets/schedule_entry_tile.dart';
+import '../widgets/session_note_sheet.dart';
 
 /// Today's schedule — the app's home screen.
 ///
@@ -87,14 +90,30 @@ class TodayScreen extends ConsumerWidget {
                 : _DayList(
                     schedule: schedule,
                     currentEntryId: currentEntryId,
-                    onStatusChanged: (ScheduledClass item,
-                            ClassSessionStatus status) =>
-                        _updateStatus(context, ref, item, status),
+                    onAction: (ScheduledClass item, ScheduleRowAction action) =>
+                        _handleAction(context, ref, item, action),
                   ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleAction(
+    BuildContext context,
+    WidgetRef ref,
+    ScheduledClass item,
+    ScheduleRowAction action,
+  ) {
+    return switch (action) {
+      ScheduleRowAction.editNote => _editNote(context, ref, item),
+      ScheduleRowAction.markCompleted =>
+        _updateStatus(context, ref, item, ClassSessionStatus.completed),
+      ScheduleRowAction.markCancelled =>
+        _updateStatus(context, ref, item, ClassSessionStatus.cancelled),
+      ScheduleRowAction.clear =>
+        _updateStatus(context, ref, item, ClassSessionStatus.scheduled),
+    };
   }
 
   /// Writes locally and reports only genuine failures. The absence of a network
@@ -120,14 +139,35 @@ class TodayScreen extends ConsumerWidget {
         if (status != ClassSessionStatus.completed) return;
         messenger.showSnackBar(
           SnackBar(
-            content: Text('${item.entry.subject} marked complete'),
-            action: SnackBarAction(
-              label: 'Undo',
-              onPressed: () => repository.setSessionStatus(
-                entry: item.entry,
-                date: item.date,
-                status: ClassSessionStatus.scheduled,
-              ),
+            // A custom Row rather than SnackBar.action because two actions are
+            // wanted here and `action` only takes one. Undo has to stay — it is
+            // the safety net for a mis-tap on the fast path.
+            content: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text('${item.entry.subject} marked complete'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    messenger.hideCurrentSnackBar();
+                    unawaited(_editNote(context, ref, item));
+                  },
+                  child: const Text('Note'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    messenger.hideCurrentSnackBar();
+                    unawaited(
+                      repository.setSessionStatus(
+                        entry: item.entry,
+                        date: item.date,
+                        status: ClassSessionStatus.scheduled,
+                      ),
+                    );
+                  },
+                  child: const Text('Undo'),
+                ),
+              ],
             ),
           ),
         );
@@ -137,19 +177,50 @@ class TodayScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _editNote(
+    BuildContext context,
+    WidgetRef ref,
+    ScheduledClass item,
+  ) async {
+    final TimetableRepository repository =
+        ref.read(timetableRepositoryProvider);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    final String? note = await SessionNoteSheet.show(
+      context,
+      title: '${item.entry.subject} · ${item.entry.classGroup} · '
+          '${item.period.timeRangeLabel}',
+      initialNote: item.session?.note ?? '',
+    );
+
+    // null means cancelled; an empty string means the teacher cleared it.
+    if (note == null) return;
+
+    final Result<void> result = await repository.setSessionNote(
+      entry: item.entry,
+      date: item.date,
+      note: note,
+    );
+
+    result.fold(
+      (_) {},
+      (failure) =>
+          messenger.showSnackBar(SnackBar(content: Text(failure.message))),
+    );
+  }
 }
 
 class _DayList extends StatelessWidget {
   const _DayList({
     required this.schedule,
-    required this.onStatusChanged,
+    required this.onAction,
     this.currentEntryId,
   });
 
   final List<ScheduledClass> schedule;
   final String? currentEntryId;
-  final void Function(ScheduledClass item, ClassSessionStatus status)
-      onStatusChanged;
+  final void Function(ScheduledClass item, ScheduleRowAction action) onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -165,21 +236,20 @@ class _DayList extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: AppSpacing.sm),
             child: CurrentClassCard(
               onMarkComplete: (ScheduledClass item) =>
-                  onStatusChanged(item, ClassSessionStatus.completed),
+                  onAction(item, ScheduleRowAction.markCompleted),
             ),
           );
         }
 
         if (index == schedule.length + 1) {
-          return _UnmarkedNudge(onStatusChanged: onStatusChanged);
+          return _UnmarkedNudge(onAction: onAction);
         }
 
         final ScheduledClass item = schedule[index - 1];
         return ScheduleEntryTile(
           item: item,
           isCurrent: item.entry.id == currentEntryId,
-          onStatusChanged: (ClassSessionStatus status) =>
-              onStatusChanged(item, status),
+          onAction: (ScheduleRowAction action) => onAction(item, action),
         );
       },
     );
@@ -191,10 +261,9 @@ class _DayList extends StatelessWidget {
 /// Deliberately not a modal or a notification: a teacher who chose not to mark a
 /// class should not have to dismiss anything.
 class _UnmarkedNudge extends ConsumerWidget {
-  const _UnmarkedNudge({required this.onStatusChanged});
+  const _UnmarkedNudge({required this.onAction});
 
-  final void Function(ScheduledClass item, ClassSessionStatus status)
-      onStatusChanged;
+  final void Function(ScheduledClass item, ScheduleRowAction action) onAction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -223,7 +292,7 @@ class _UnmarkedNudge extends ConsumerWidget {
                 child: FilledButton.tonal(
                   onPressed: () {
                     for (final ScheduledClass item in unmarked) {
-                      onStatusChanged(item, ClassSessionStatus.completed);
+                      onAction(item, ScheduleRowAction.markCompleted);
                     }
                   },
                   child: const Text('Mark all completed'),

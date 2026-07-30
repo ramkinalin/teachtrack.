@@ -209,20 +209,42 @@ class TimetableRepositoryImpl implements TimetableRepository {
   }
 
   @override
+  Future<Result<void>> setSessionNote({
+    required TimetableEntry entry,
+    required DateTime date,
+    required String note,
+  }) {
+    final ClassSession? existing = _local
+        .sessionById(ClassSession.buildId(CalendarDay.dateOnly(date), entry.id));
+
+    return setSessionStatus(
+      entry: entry,
+      date: date,
+      status: existing?.status ?? ClassSessionStatus.scheduled,
+      note: note,
+    );
+  }
+
+  @override
   Future<Result<void>> setSessionStatus({
     required TimetableEntry entry,
     required DateTime date,
     required ClassSessionStatus status,
-    String note = '',
+    String? note,
   }) async {
     final DateTime day = CalendarDay.dateOnly(date);
     final String sessionId = ClassSession.buildId(day, entry.id);
+    final ClassSession? existing = _local.sessionById(sessionId);
+
+    // A null note means "leave it alone", so changing a status never discards
+    // what the teacher wrote.
+    final String resolvedNote = (note ?? existing?.note ?? '').trim();
 
     try {
-      // Reverting to "scheduled" removes the record entirely, which keeps the
-      // no-record-means-scheduled invariant and avoids storing a row that says
-      // nothing happened.
-      if (status == ClassSessionStatus.scheduled) {
+      // Nothing happened and nothing was written, so store nothing: this is what
+      // keeps a normal week at zero writes. A note alone is enough to keep the
+      // record alive.
+      if (status == ClassSessionStatus.scheduled && resolvedNote.isEmpty) {
         await _local.deleteSession(sessionId);
         await _syncQueue.enqueue(
           entityType: SyncEntityTypes.classSession,
@@ -233,7 +255,6 @@ class TimetableRepositoryImpl implements TimetableRepository {
         return okVoid;
       }
 
-      final bool isNew = _local.sessionById(sessionId) == null;
       final ClassSession session = ClassSession(
         id: sessionId,
         entryId: entry.id,
@@ -244,15 +265,16 @@ class TimetableRepositoryImpl implements TimetableRepository {
         updatedAt: DateTime.fromMillisecondsSinceEpoch(
           _clock.now().millisecondsSinceEpoch,
         ),
-        note: note,
+        note: resolvedNote,
       );
 
       await _local.putSession(session);
       await _syncQueue.enqueue(
         entityType: SyncEntityTypes.classSession,
         entityId: sessionId,
-        operation:
-            isNew ? SyncOperationType.create : SyncOperationType.update,
+        operation: existing == null
+            ? SyncOperationType.create
+            : SyncOperationType.update,
         payload: session.toJson(),
       );
       return okVoid;

@@ -2,23 +2,26 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/day_time.dart';
-import '../../domain/entities/class_session.dart';
 import '../../domain/entities/scheduled_class.dart';
+
+/// What a teacher can do to one row of the day list.
+enum ScheduleRowAction { markCompleted, markCancelled, clear, editNote }
 
 /// One row in the day list.
 ///
 /// Marking complete is a single tap on the trailing control — the workflow a
-/// teacher runs twenty times a day should never take two.
+/// teacher runs twenty times a day should never take two. Everything else lives
+/// behind the overflow menu.
 class ScheduleEntryTile extends StatelessWidget {
   const ScheduleEntryTile({
     required this.item,
     super.key,
-    this.onStatusChanged,
+    this.onAction,
     this.isCurrent = false,
   });
 
   final ScheduledClass item;
-  final ValueChanged<ClassSessionStatus>? onStatusChanged;
+  final ValueChanged<ScheduleRowAction>? onAction;
   final bool isCurrent;
 
   @override
@@ -54,6 +57,7 @@ class ScheduleEntryTile extends StatelessWidget {
 
     final bool completed = item.isCompleted;
     final bool cancelled = item.isCancelled;
+    final String note = item.session?.note ?? '';
 
     return Card(
       color: isCurrent ? scheme.secondaryContainer : null,
@@ -115,14 +119,39 @@ class ScheduleEntryTile extends StatelessWidget {
                     style: text.bodySmall
                         ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
+                  if (note.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Icon(
+                          Icons.sticky_note_2_outlined,
+                          size: 14,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            note,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.bodySmall?.copyWith(
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
-            if (onStatusChanged != null)
-              _StatusControl(
+            if (onAction != null)
+              _ActionControls(
                 completed: completed,
                 cancelled: cancelled,
-                onStatusChanged: onStatusChanged!,
+                hasNote: note.isNotEmpty,
+                onAction: onAction!,
               ),
           ],
         ),
@@ -140,16 +169,18 @@ class ScheduleEntryTile extends StatelessWidget {
   }
 }
 
-class _StatusControl extends StatelessWidget {
-  const _StatusControl({
+class _ActionControls extends StatelessWidget {
+  const _ActionControls({
     required this.completed,
     required this.cancelled,
-    required this.onStatusChanged,
+    required this.hasNote,
+    required this.onAction,
   });
 
   final bool completed;
   final bool cancelled;
-  final ValueChanged<ClassSessionStatus> onStatusChanged;
+  final bool hasNote;
+  final ValueChanged<ScheduleRowAction> onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -159,10 +190,8 @@ class _StatusControl extends StatelessWidget {
       children: <Widget>[
         IconButton(
           tooltip: completed ? 'Undo completion' : 'Mark class completed',
-          onPressed: () => onStatusChanged(
-            completed
-                ? ClassSessionStatus.scheduled
-                : ClassSessionStatus.completed,
+          onPressed: () => onAction(
+            completed ? ScheduleRowAction.clear : ScheduleRowAction.markCompleted,
           ),
           icon: Icon(
             completed
@@ -171,25 +200,29 @@ class _StatusControl extends StatelessWidget {
             color: completed ? scheme.primary : scheme.onSurfaceVariant,
           ),
         ),
-        PopupMenuButton<ClassSessionStatus>(
+        PopupMenuButton<ScheduleRowAction>(
           tooltip: 'More',
-          onSelected: onStatusChanged,
+          onSelected: onAction,
           itemBuilder: (BuildContext context) =>
-              <PopupMenuEntry<ClassSessionStatus>>[
+              <PopupMenuEntry<ScheduleRowAction>>[
+            PopupMenuItem<ScheduleRowAction>(
+              value: ScheduleRowAction.editNote,
+              child: Text(hasNote ? 'Edit note' : 'Add note'),
+            ),
             if (!completed)
-              const PopupMenuItem<ClassSessionStatus>(
-                value: ClassSessionStatus.completed,
+              const PopupMenuItem<ScheduleRowAction>(
+                value: ScheduleRowAction.markCompleted,
                 child: Text('Mark completed'),
               ),
             if (!cancelled)
-              const PopupMenuItem<ClassSessionStatus>(
-                value: ClassSessionStatus.cancelled,
+              const PopupMenuItem<ScheduleRowAction>(
+                value: ScheduleRowAction.markCancelled,
                 child: Text('Mark cancelled'),
               ),
             if (completed || cancelled)
-              const PopupMenuItem<ClassSessionStatus>(
-                value: ClassSessionStatus.scheduled,
-                child: Text('Clear'),
+              const PopupMenuItem<ScheduleRowAction>(
+                value: ScheduleRowAction.clear,
+                child: Text('Clear status'),
               ),
           ],
         ),

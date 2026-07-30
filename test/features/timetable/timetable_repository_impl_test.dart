@@ -477,6 +477,126 @@ void main() {
     });
   });
 
+  group('session notes', () {
+    test('a note on an unmarked lesson creates a scheduled record', () async {
+      final TimetableEntry e = entry();
+
+      await repository.setSessionNote(
+        entry: e,
+        date: thursday,
+        note: 'Finished chapter 4',
+      );
+
+      final ClassSession? session = local.sessionById('2026-07-30_e1');
+      expect(session?.note, 'Finished chapter 4');
+      expect(
+        session?.status,
+        ClassSessionStatus.scheduled,
+        reason: 'a note is not a completion',
+      );
+    });
+
+    test('changing the status keeps an existing note', () async {
+      final TimetableEntry e = entry();
+      await repository.setSessionNote(
+        entry: e,
+        date: thursday,
+        note: 'Covered algebra',
+      );
+
+      await repository.setSessionStatus(
+        entry: e,
+        date: thursday,
+        status: ClassSessionStatus.completed,
+      );
+
+      final ClassSession? session = local.sessionById('2026-07-30_e1');
+      expect(session?.status, ClassSessionStatus.completed);
+      expect(
+        session?.note,
+        'Covered algebra',
+        reason: 'a null note must mean "leave it alone"',
+      );
+    });
+
+    test('a note survives clearing the status', () async {
+      final TimetableEntry e = entry();
+      await repository.setSessionStatus(
+        entry: e,
+        date: thursday,
+        status: ClassSessionStatus.completed,
+        note: 'Sports day, class not held',
+      );
+
+      await repository.setSessionStatus(
+        entry: e,
+        date: thursday,
+        status: ClassSessionStatus.scheduled,
+      );
+
+      final ClassSession? session = local.sessionById('2026-07-30_e1');
+      expect(session, isNotNull, reason: 'the note keeps the record alive');
+      expect(session?.status, ClassSessionStatus.scheduled);
+      expect(session?.note, 'Sports day, class not held');
+    });
+
+    test('clearing both the status and the note removes the record', () async {
+      final TimetableEntry e = entry();
+      await repository.setSessionNote(entry: e, date: thursday, note: 'Anything');
+
+      await repository.setSessionNote(entry: e, date: thursday, note: '');
+
+      expect(
+        local.sessionById('2026-07-30_e1'),
+        isNull,
+        reason: 'no record means scheduled, which keeps a normal week at zero '
+            'writes',
+      );
+    });
+
+    test('a whitespace-only note counts as empty', () async {
+      final TimetableEntry e = entry();
+
+      await repository.setSessionNote(entry: e, date: thursday, note: '   ');
+
+      expect(local.sessionById('2026-07-30_e1'), isNull);
+    });
+
+    test('notes are trimmed', () async {
+      final TimetableEntry e = entry();
+
+      await repository.setSessionNote(
+        entry: e,
+        date: thursday,
+        note: '  Chapter 5  ',
+      );
+
+      expect(local.sessionById('2026-07-30_e1')?.note, 'Chapter 5');
+    });
+
+    test('editing a note repeatedly costs one remote write', () async {
+      final TimetableEntry e = entry();
+
+      await repository.setSessionNote(entry: e, date: thursday, note: 'First');
+      await repository.setSessionNote(entry: e, date: thursday, note: 'Second');
+      await repository.setSessionNote(entry: e, date: thursday, note: 'Third');
+
+      expect(queue.pendingCount, 1);
+      expect(queue.dueOperations().single.payload['note'], 'Third');
+    });
+
+    test('a note reaches the sync payload', () async {
+      final TimetableEntry e = entry();
+
+      await repository.setSessionNote(entry: e, date: thursday, note: 'Ch. 4');
+
+      final PendingOperation op = queue.dueOperations().single;
+      expect(op.entityType, SyncEntityTypes.classSession);
+      expect(op.payload['note'], 'Ch. 4');
+      expect(op.payload['status'], 'scheduled');
+    });
+  });
+
   group('pruneSessionsBefore', () {
     test('drops only sessions older than the cutoff', () async {
       final TimetableEntry e = entry();
