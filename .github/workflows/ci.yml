@@ -56,15 +56,16 @@ jobs:
       - name: Stage the generated android/ folder for download
         if: env.generated_android == 'true'
         run: |
-          mkdir -p .artifact
-          cp -r android .artifact/android
+          mkdir -p android_artifact
+          cp -r android android_artifact/android
 
       - name: Upload the generated android/ folder
         if: env.generated_android == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: android-folder
-          path: .artifact
+          path: android_artifact
+          include-hidden-files: true
           retention-days: 14
 
       - name: Install dependencies
