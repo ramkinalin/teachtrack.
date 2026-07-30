@@ -1,0 +1,40 @@
+name: teachtrack
+description: Offline-first daily management app for school teachers.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  # 3.9.0 floor (Flutter 3.35+): needed for DropdownButtonFormField.initialValue.
+  # The Material 3 component-theme classes used in AppTheme (CardThemeData and
+  # friends) require Flutter 3.27+, which is already covered by this.
+  sdk: ">=3.9.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Local storage (community-maintained Hive fork)
+  hive_ce: ^2.7.0
+  hive_ce_flutter: ^2.0.0
+  path_provider: ^2.1.4
+
+  # Platform services
+  connectivity_plus: ^6.0.5
+
+  # Navigation
+  go_router: ^14.2.7
+
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
