@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Analyze, test and build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Report toolchain versions
+        run: flutter --version
+
+      - name: Generate the Android platform folder
+        run: |
+          flutter create --org com.teachtrack --project-name teachtrack /tmp/scaffold
+          cp -r /tmp/scaffold/android ./android
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        id: analyze
+        continue-on-error: true
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        id: test
+        continue-on-error: true
+        run: flutter test --reporter expanded
+
+      - name: Fail if analyze or tests failed
+        if: steps.analyze.outcome == 'failure' || steps.test.outcome == 'failure'
+        run: |
+          echo "analyze: ${{ steps.analyze.outcome }}"
+          echo "test:    ${{ steps.test.outcome }}"
+          exit 1
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: teachtrack-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
