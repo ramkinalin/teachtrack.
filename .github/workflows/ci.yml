@@ -29,14 +29,50 @@ jobs:
       - name: Report toolchain versions
         run: flutter --version
 
-      - name: Generate the Android platform folder
+      # Generates android/ only when the repo doesn't carry one. Scaffolding into
+      # a temp directory and copying just android/ across avoids `flutter create`
+      # overwriting lib/main.dart or pubspec.yaml, which it does when run
+      # directly inside an existing project.
+      #
+      # Once android/ is committed this step does nothing, and the manifest
+      # becomes an ordinary editable file — which it has to be for notification
+      # permissions and the boot receiver.
+      - name: Generate the Android platform folder if absent
         run: |
-          flutter create --org com.teachtrack --project-name teachtrack /tmp/scaffold
-          cp -r /tmp/scaffold/android ./android
+          if [ -d android ]; then
+            echo "android/ is committed — using it as-is"
+          else
+            flutter create --org com.teachtrack --project-name teachtrack /tmp/scaffold
+            cp -r /tmp/scaffold/android ./android
+            echo "generated_android=true" >> "$GITHUB_ENV"
+          fi
+
+      # Offered as a download so the generated folder can be committed once,
+      # rather than being regenerated on every run forever.
+      #
+      # Staged inside a wrapper directory on purpose: uploading `android` alone
+      # produces a zip of its *contents*, which is fiddly to put back in the right
+      # place. This way the zip contains a ready-to-commit `android/` folder.
+      - name: Stage the generated android/ folder for download
+        if: env.generated_android == 'true'
+        run: |
+          mkdir -p .artifact
+          cp -r android .artifact/android
+
+      - name: Upload the generated android/ folder
+        if: env.generated_android == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-folder
+          path: .artifact
+          retention-days: 14
 
       - name: Install dependencies
         run: flutter pub get
 
+      # continue-on-error so a compile error does not hide the test results:
+      # on early runs it is far more useful to see every failure in one pass.
+      # The gate step at the end still fails the build.
       - name: Analyze
         id: analyze
         continue-on-error: true
