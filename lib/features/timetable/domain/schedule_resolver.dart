@@ -99,12 +99,15 @@ abstract final class ScheduleResolver {
     );
   }
 
-  /// Lessons still untouched at [now], used for a gentle end-of-day nudge.
+  /// Lessons still untouched by [minuteNow], for a gentle end-of-day nudge.
+  ///
+  /// Takes minutes-since-midnight rather than a `DateTime` so callers cannot be
+  /// tempted to reconstruct an instant by adding minutes to a local midnight,
+  /// which is wrong across a DST transition.
   static List<ScheduledClass> unmarkedPast(
     List<ScheduledClass> schedule,
-    DateTime now,
+    int minuteNow,
   ) {
-    final int minuteNow = DayTime.fromDateTime(now);
     return schedule
         .where(
           (ScheduledClass item) =>

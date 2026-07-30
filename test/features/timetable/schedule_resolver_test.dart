@@ -162,7 +162,7 @@ void main() {
   group('unmarkedPast', () {
     test('lists finished lessons with nothing recorded, ignoring breaks', () {
       final List<ScheduledClass> unmarked =
-          ScheduleResolver.unmarkedPast(schedule, _at(10, 0));
+          ScheduleResolver.unmarkedPast(schedule, 10 * 60);
 
       expect(
         unmarked.map((ScheduledClass c) => c.period.id),
@@ -177,7 +177,7 @@ void main() {
           _scheduled(p1, status: ClassSessionStatus.completed),
           _scheduled(p2, status: ClassSessionStatus.cancelled),
         ],
-        _at(10, 0),
+        10 * 60,
       );
 
       expect(unmarked, isEmpty);
@@ -185,7 +185,7 @@ void main() {
 
     test('excludes lessons that have not finished yet', () {
       final List<ScheduledClass> unmarked =
-          ScheduleResolver.unmarkedPast(schedule, _at(8, 20));
+          ScheduleResolver.unmarkedPast(schedule, 8 * 60 + 20);
 
       expect(unmarked, isEmpty);
     });

@@ -7,14 +7,20 @@ abstract final class AppRoutes {
   static const String todayPath = '/';
   static const String todayName = 'today';
 
+  static const String onboardingPath = '/setup';
+  static const String onboardingName = 'setup';
+
   static const String timetablePath = '/timetable';
   static const String timetableName = 'timetable';
 
-  static const String peModulePath = '/pe';
-  static const String peModuleName = 'pe';
-
   static const String settingsPath = '/settings';
   static const String settingsName = 'settings';
+
+  static const String subjectsPath = '/settings/subjects';
+  static const String subjectsName = 'subjects';
+
+  static const String peModulePath = '/pe';
+  static const String peModuleName = 'pe';
 
   /// Debug-only sync inspector.
   static const String diagnosticsPath = '/diagnostics';

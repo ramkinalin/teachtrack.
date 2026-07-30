@@ -77,6 +77,8 @@ class TimetableLocalDataSource {
 
   ClassSession? sessionById(String id) => sessionsBox.get(id);
 
+  List<ClassSession> allSessions() => sessionsBox.values.toList(growable: false);
+
   // --- Writes ---------------------------------------------------------------
 
   Future<void> putPeriods(List<Period> periods) async {
@@ -95,6 +97,11 @@ class TimetableLocalDataSource {
       sessionsBox.put(session.id, session);
 
   Future<void> deleteSession(String sessionId) => sessionsBox.delete(sessionId);
+
+  // Deliberately no bulk-clear method here. Wiping the boxes directly would
+  // leave the outbox holding creates for records that no longer exist, so
+  // clearing goes through `TimetableRepository.clearAllData`, which queues a
+  // delete for each one.
 
   /// Drops session records older than [retention].
   ///
@@ -142,6 +149,12 @@ class TimetableLocalDataSource {
     _changeSubs.clear();
   }
 
+  /// Closes the boxes and the change stream.
+  ///
+  /// Anyone already subscribed to [watchChanges] stops receiving events: the
+  /// controller is closed, and a later `init()` creates a fresh one. Callers that
+  /// reopen must re-subscribe. Only tests do this today; in the app the data
+  /// source lives for the whole process.
   Future<void> close() async {
     await _detachBoxListeners();
     await _changes?.close();

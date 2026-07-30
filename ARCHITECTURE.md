@@ -84,6 +84,34 @@ watches a `select`-narrowed slice so it does not rebuild every second.
 `selectedDateProvider` self-invalidates just after midnight — otherwise an app
 left open overnight would file completions under yesterday.
 
+## Profile, subjects and first-run setup
+
+The teacher's profile and the subject list are single-record configuration, so
+they live as JSON in the shared settings box rather than in dedicated boxes with
+TypeAdapters — there is nothing to query and only ever one row.
+
+The profile id is minted once and never changes, because it is the `teacherId`
+stamped onto every timetable entry. That field is inert today; it is what a
+school-wide "which class is handled by which teacher" view will group by once
+sync exists. Adding it now costs nothing, whereas retrofitting an owner onto
+records that have already synced does not.
+
+The subject list is **names, not entities**. An entry stores its subject as text,
+so the list is an input aid rather than a foreign key: renaming or deleting a
+subject can never orphan a class, and entries created before the list existed
+need no migration. The last subject cannot be removed — an empty stored list is
+indistinguishable from "nothing stored yet", which would resurrect the defaults.
+
+Setup is gated by a single router redirect on one flag. The redirect reads the
+repository rather than the provider, because the Hive write is synchronous while
+the provider refresh arrives on an async box event — reading the provider would
+bounce a teacher straight back into the wizard the moment they finished it.
+
+New installs seed a bell schedule and a subject list but **no sample classes**, so
+the empty state and the wizard are actually reachable. The demo week is available
+from Settings, and it loads through `upsertEntry` so it obeys the same validation
+and outbox rules as real data.
+
 ## Hive type ids
 
 Ids in `core/constants/hive_boxes.dart` are permanent. Once a build ships,

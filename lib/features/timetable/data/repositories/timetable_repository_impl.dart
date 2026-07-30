@@ -10,6 +10,7 @@ import '../../domain/entities/period.dart';
 import '../../domain/entities/scheduled_class.dart';
 import '../../domain/entities/timetable_entry.dart';
 import '../../domain/repositories/timetable_repository.dart';
+import '../local/subject_store.dart';
 import '../local/timetable_local_data_source.dart';
 
 /// Local-first timetable repository.
@@ -21,13 +22,16 @@ import '../local/timetable_local_data_source.dart';
 class TimetableRepositoryImpl implements TimetableRepository {
   TimetableRepositoryImpl({
     required TimetableLocalDataSource local,
+    required SubjectStore subjects,
     required SyncQueueService syncQueue,
     Clock clock = const Clock(),
   })  : _local = local,
+        _subjects = subjects,
         _syncQueue = syncQueue,
         _clock = clock;
 
   final TimetableLocalDataSource _local;
+  final SubjectStore _subjects;
   final SyncQueueService _syncQueue;
   final Clock _clock;
 
@@ -260,5 +264,102 @@ class TimetableRepositoryImpl implements TimetableRepository {
   }
 
   @override
+  Future<Result<int>> clearAllData() async {
+    try {
+      int removed = 0;
+
+      for (final TimetableEntry entry in _local.allEntries()) {
+        await _local.deleteEntry(entry.id);
+        await _syncQueue.enqueue(
+          entityType: SyncEntityTypes.timetableEntry,
+          entityId: entry.id,
+          operation: SyncOperationType.delete,
+          payload: <String, dynamic>{'id': entry.id},
+        );
+        removed++;
+      }
+
+      for (final ClassSession session in _local.allSessions()) {
+        await _local.deleteSession(session.id);
+        await _syncQueue.enqueue(
+          entityType: SyncEntityTypes.classSession,
+          entityId: session.id,
+          operation: SyncOperationType.delete,
+          payload: <String, dynamic>{'id': session.id},
+        );
+        removed++;
+      }
+
+      return Ok<int>(removed);
+    } on Object catch (error) {
+      return Err<int>(CacheFailure('Could not clear the data', cause: error));
+    }
+  }
+
+  @override
   Stream<void> watchChanges() => _local.watchChanges();
+
+  @override
+  List<String> subjects() => _subjects.subjects();
+
+  @override
+  Future<Result<String>> addSubject(String name) async {
+    try {
+      final String? canonical = await _subjects.add(name);
+      if (canonical == null) {
+        return const Err<String>(
+          ValidationFailure('Subject name is required', field: 'subject'),
+        );
+      }
+      return Ok<String>(canonical);
+    } on Object catch (error) {
+      return Err<String>(
+        CacheFailure('Could not add the subject', cause: error),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> removeSubject(String name) async {
+    try {
+      // `remove` reports false for two different reasons. Distinguished here so
+      // a double-tap on the remove button does not claim the list is about to be
+      // emptied when there are seventeen subjects left.
+      final String needle = name.trim().toLowerCase();
+      final bool wasPresent =
+          _subjects.subjects().any((String s) => s.toLowerCase() == needle);
+
+      final bool removed = await _subjects.remove(name);
+      if (!removed) {
+        return Err<void>(
+          ValidationFailure(
+            wasPresent
+                ? 'Keep at least one subject in the list'
+                : 'That subject is not in the list',
+            field: 'subject',
+          ),
+        );
+      }
+      return okVoid;
+    } on Object catch (error) {
+      return Err<void>(
+        CacheFailure('Could not remove the subject', cause: error),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> restoreDefaultSubjects() async {
+    try {
+      await _subjects.restoreDefaults();
+      return okVoid;
+    } on Object catch (error) {
+      return Err<void>(
+        CacheFailure('Could not restore the subject list', cause: error),
+      );
+    }
+  }
+
+  @override
+  Stream<void> watchSubjects() => _subjects.watchChanges();
 }

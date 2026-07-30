@@ -12,6 +12,7 @@ class TimetableEntry {
     this.room = '',
     this.isPhysicalEducation = false,
     this.notes = '',
+    this.teacherId = '',
   });
 
   factory TimetableEntry.fromJson(Map<String, dynamic> json) => TimetableEntry(
@@ -23,6 +24,7 @@ class TimetableEntry {
         room: json['room'] as String? ?? '',
         isPhysicalEducation: json['isPhysicalEducation'] as bool? ?? false,
         notes: json['notes'] as String? ?? '',
+        teacherId: json['teacherId'] as String? ?? '',
       );
 
   final String id;
@@ -45,6 +47,12 @@ class TimetableEntry {
 
   final String notes;
 
+  /// Owning teacher's profile id, stamped on save.
+  ///
+  /// Empty on entries created before a profile existed. This is the field a
+  /// school-wide headmaster view will group by; until then it is inert.
+  final String teacherId;
+
   /// Slot identity used for conflict detection.
   String get slotKey => '$weekday:$periodId';
 
@@ -57,6 +65,7 @@ class TimetableEntry {
         'room': room,
         'isPhysicalEducation': isPhysicalEducation,
         'notes': notes,
+        'teacherId': teacherId,
       };
 
   TimetableEntry copyWith({
@@ -67,6 +76,7 @@ class TimetableEntry {
     String? room,
     bool? isPhysicalEducation,
     String? notes,
+    String? teacherId,
   }) =>
       TimetableEntry(
         id: id,
@@ -77,6 +87,7 @@ class TimetableEntry {
         room: room ?? this.room,
         isPhysicalEducation: isPhysicalEducation ?? this.isPhysicalEducation,
         notes: notes ?? this.notes,
+        teacherId: teacherId ?? this.teacherId,
       );
 
   @override
@@ -89,7 +100,8 @@ class TimetableEntry {
       other.classGroup == classGroup &&
       other.room == room &&
       other.isPhysicalEducation == isPhysicalEducation &&
-      other.notes == notes;
+      other.notes == notes &&
+      other.teacherId == teacherId;
 
   @override
   int get hashCode => Object.hash(
@@ -101,6 +113,7 @@ class TimetableEntry {
         room,
         isPhysicalEducation,
         notes,
+        teacherId,
       );
 
   @override

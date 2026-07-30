@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/clock.dart';
 import '../../../../core/utils/day_time.dart';
 import '../../../../shared/providers/core_providers.dart';
+import '../../data/local/subject_store.dart';
 import '../../data/local/timetable_local_data_source.dart';
 import '../../data/repositories/timetable_repository_impl.dart';
 import '../../domain/entities/period.dart';
@@ -22,13 +23,34 @@ final Provider<TimetableLocalDataSource> timetableLocalDataSourceProvider =
   ),
 );
 
+final subjectStoreProvider = Provider<SubjectStore>((ref) {
+  return SubjectStore(
+    settingsBox: ref.watch(localStorageServiceProvider).settingsBox,
+  );
+});
+
 final Provider<TimetableRepository> timetableRepositoryProvider =
     Provider<TimetableRepository>((ref) {
   return TimetableRepositoryImpl(
     local: ref.watch(timetableLocalDataSourceProvider),
+    subjects: ref.watch(subjectStoreProvider),
     syncQueue: ref.watch(syncQueueServiceProvider),
     clock: ref.watch(clockProvider),
   );
+});
+
+/// Subject names for the entry form dropdown, refreshed when the list is edited.
+final subjectsProvider = Provider<List<String>>((ref) {
+  final TimetableRepository repository =
+      ref.watch(timetableRepositoryProvider);
+
+  // Kept as a plain Provider seeded synchronously, then invalidated on change,
+  // so the dropdown has real options on its very first build.
+  final StreamSubscription<void> subscription =
+      repository.watchSubjects().listen((void _) => ref.invalidateSelf());
+  ref.onDispose(subscription.cancel);
+
+  return repository.subjects();
 });
 
 /// Base for state seeded synchronously from Hive and refreshed on box changes.
@@ -155,11 +177,26 @@ final scheduleSnapshotProvider = Provider.autoDispose<ScheduleSnapshot>((ref) {
   return ScheduleResolver.resolve(schedule, now);
 });
 
-/// Lessons that finished without being marked, for an end-of-day nudge.
-final unmarkedPastProvider =
-    Provider.autoDispose<List<ScheduledClass>>((ref) {
-  final List<ScheduledClass> schedule = ref.watch(scheduleProvider);
+/// Minute-of-day, derived from the ticker.
+///
+/// Anything that only changes when the clock crosses a minute should watch this
+/// rather than the raw tick — an `int` compares by value, so watchers are left
+/// alone for 59 of every 60 seconds.
+final currentMinuteProvider = Provider.autoDispose<int>((ref) {
   final DateTime now =
       ref.watch(tickerProvider).valueOrNull ?? ref.watch(clockProvider).now();
-  return ScheduleResolver.unmarkedPast(schedule, now);
+  return DayTime.fromDateTime(now);
+});
+
+/// Lessons that finished without being marked, for an end-of-day nudge.
+///
+/// Deliberately driven by [currentMinuteProvider], not the ticker: whether a
+/// lesson has finished can only change on a minute boundary, and this returns a
+/// fresh list each time it runs, which a `Provider` cannot deduplicate.
+final unmarkedPastProvider =
+    Provider.autoDispose<List<ScheduledClass>>((ref) {
+  return ScheduleResolver.unmarkedPast(
+    ref.watch(scheduleProvider),
+    ref.watch(currentMinuteProvider),
+  );
 });

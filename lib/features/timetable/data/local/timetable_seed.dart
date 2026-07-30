@@ -1,3 +1,4 @@
+import '../../../../core/utils/result.dart';
 import '../../domain/entities/period.dart';
 import '../../domain/entities/timetable_entry.dart';
 import 'timetable_local_data_source.dart';
@@ -97,7 +98,7 @@ abstract final class TimetableSeed {
 
   /// A realistic mixed week for one teacher, including PE lessons so the PE
   /// module has something to attach to later.
-  static List<TimetableEntry> sampleWeek() {
+  static List<TimetableEntry> sampleWeek({String teacherId = ''}) {
     final List<TimetableEntry> entries = <TimetableEntry>[];
 
     void add(
@@ -117,6 +118,7 @@ abstract final class TimetableSeed {
           classGroup: classGroup,
           room: room,
           isPhysicalEducation: pe,
+          teacherId: teacherId,
         ),
       );
     }
@@ -153,20 +155,38 @@ abstract final class TimetableSeed {
     return entries;
   }
 
-  /// Seeds only what is missing, so it is safe to call on every launch and never
-  /// overwrites a teacher's own edits.
-  static Future<void> apply(
-    TimetableLocalDataSource local, {
-    required bool includeSampleEntries,
-  }) async {
+  /// Ensures a bell schedule exists. Safe on every launch — it never overwrites
+  /// a schedule the teacher has already adjusted.
+  ///
+  /// Sample classes are deliberately NOT seeded here. A new install must land on
+  /// the real empty state so setup is visible; the demo week is available on
+  /// demand from settings instead.
+  static Future<void> ensurePeriods(TimetableLocalDataSource local) async {
     if (local.periodsBox.isEmpty) {
       await local.putPeriods(defaultPeriods());
     }
+  }
 
-    if (includeSampleEntries && local.entriesBox.isEmpty) {
-      for (final TimetableEntry entry in sampleWeek()) {
-        await local.putEntry(entry);
-      }
+  /// Adds the demo week through [upsert], skipping entries that already exist.
+  ///
+  /// Takes the repository's upsert rather than writing to the box directly, so
+  /// demo data goes through the same validation and outbox path as a real entry.
+  /// Anything the repository rejects — a slot a real class already holds — is
+  /// simply skipped.
+  ///
+  /// Returns how many were added, so the caller can tell "loaded" from
+  /// "already there".
+  static Future<int> loadSampleWeek({
+    required TimetableLocalDataSource local,
+    required Future<Result<void>> Function(TimetableEntry entry) upsert,
+    String teacherId = '',
+  }) async {
+    int added = 0;
+    for (final TimetableEntry entry in sampleWeek(teacherId: teacherId)) {
+      if (local.entryById(entry.id) != null) continue;
+      final Result<void> result = await upsert(entry);
+      if (result.isOk) added++;
     }
+    return added;
   }
 }

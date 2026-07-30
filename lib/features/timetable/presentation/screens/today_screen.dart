@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +6,8 @@ import '../../../../app/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/day_time.dart';
 import '../../../../core/utils/result.dart';
-import '../../../../core/widgets/app_state_views.dart';
 import '../../../../core/widgets/sync_status_banner.dart';
+import '../../../profile/presentation/profile_providers.dart';
 import '../../domain/entities/class_session.dart';
 import '../../domain/entities/scheduled_class.dart';
 import '../../domain/repositories/timetable_repository.dart';
@@ -38,21 +37,42 @@ class TodayScreen extends ConsumerWidget {
       ),
     );
 
+    final String teacherName = ref.watch(
+      profileProvider.select(
+        (ProfileState profile) => profile.profile?.fullName ?? '',
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(CalendarDay.longLabel(date.weekday)),
+        // Taller than the 56dp default: the two-line title needs the room once
+        // AppBar applies its 1.34x text-scale clamp for accessibility settings.
+        toolbarHeight: 72,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(CalendarDay.longLabel(date.weekday)),
+            if (teacherName.isNotEmpty)
+              Text(
+                teacherName,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+          ],
+        ),
         actions: <Widget>[
           IconButton(
             tooltip: 'Edit timetable',
             onPressed: () => context.pushNamed(AppRoutes.timetableName),
             icon: const Icon(Icons.edit_calendar_outlined),
           ),
-          if (kDebugMode)
-            IconButton(
-              tooltip: 'Sync diagnostics',
-              onPressed: () => context.pushNamed(AppRoutes.diagnosticsName),
-              icon: const Icon(Icons.bug_report_outlined),
-            ),
+          IconButton(
+            tooltip: 'Settings',
+            onPressed: () => context.pushNamed(AppRoutes.settingsName),
+            icon: const Icon(Icons.settings_outlined),
+          ),
         ],
       ),
       body: Column(
@@ -60,7 +80,10 @@ class TodayScreen extends ConsumerWidget {
           const SyncStatusBanner(),
           Expanded(
             child: schedule.isEmpty
-                ? _EmptyDay(weekday: date.weekday)
+                ? _EmptyDay(
+                    weekday: date.weekday,
+                    hasAnyClasses: ref.watch(allEntriesProvider).isNotEmpty,
+                  )
                 : _DayList(
                     schedule: schedule,
                     currentEntryId: currentEntryId,
@@ -214,17 +237,60 @@ class _UnmarkedNudge extends ConsumerWidget {
   }
 }
 
+/// Empty state that offers the next action rather than just reporting nothing.
 class _EmptyDay extends StatelessWidget {
-  const _EmptyDay({required this.weekday});
+  const _EmptyDay({required this.weekday, required this.hasAnyClasses});
 
   final int weekday;
 
+  /// Distinguishes "no timetable yet" from "nothing on today" — a teacher with a
+  /// full week and a free Saturday should not be told to go set up a timetable.
+  final bool hasAnyClasses;
+
   @override
   Widget build(BuildContext context) {
-    return AppEmptyView(
-      icon: Icons.event_available_outlined,
-      title: 'Nothing scheduled for ${CalendarDay.longLabel(weekday)}',
-      subtitle: 'Add classes from the timetable editor to see them here.',
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(
+              hasAnyClasses
+                  ? Icons.beach_access_outlined
+                  : Icons.event_available_outlined,
+              size: 40,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              hasAnyClasses
+                  ? 'No classes on ${CalendarDay.longLabel(weekday)}'
+                  : 'Your timetable is empty',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              hasAnyClasses
+                  ? 'Enjoy the day off.'
+                  : 'Add your classes once and TeachTrack shows them every week.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            if (!hasAnyClasses) ...<Widget>[
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.icon(
+                onPressed: () => context.pushNamed(AppRoutes.timetableName),
+                icon: const Icon(Icons.add),
+                label: const Text('Add your timetable'),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

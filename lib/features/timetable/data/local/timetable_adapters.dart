@@ -62,13 +62,16 @@ class TimetableEntryAdapter extends TypeAdapter<TimetableEntry> {
       room: fields[5] as String? ?? '',
       isPhysicalEducation: fields[6] as bool? ?? false,
       notes: fields[7] as String? ?? '',
+      // Field 8 was appended after the first release: entries written by an
+      // earlier build simply have no teacher, which the default handles.
+      teacherId: fields[8] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, TimetableEntry obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -84,7 +87,9 @@ class TimetableEntryAdapter extends TypeAdapter<TimetableEntry> {
       ..writeByte(6)
       ..write(obj.isPhysicalEducation)
       ..writeByte(7)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(8)
+      ..write(obj.teacherId);
   }
 }
 

@@ -7,6 +7,7 @@ import 'package:teachtrack/core/constants/hive_boxes.dart';
 import 'package:teachtrack/core/errors/failures.dart';
 import 'package:teachtrack/core/services/sync/sync_queue_service.dart';
 import 'package:teachtrack/core/utils/clock.dart';
+import 'package:teachtrack/features/timetable/data/local/subject_store.dart';
 import 'package:teachtrack/features/timetable/data/local/timetable_local_data_source.dart';
 import 'package:teachtrack/features/timetable/data/repositories/timetable_repository_impl.dart';
 import 'package:teachtrack/features/timetable/domain/entities/class_session.dart';
@@ -77,6 +78,9 @@ void main() {
     );
     repository = TimetableRepositoryImpl(
       local: local,
+      subjects: SubjectStore(
+        settingsBox: await Hive.openBox<dynamic>(HiveBoxes.settings),
+      ),
       syncQueue: queue,
       clock: clock,
     );
@@ -270,6 +274,118 @@ void main() {
       expect(result.isErr, isTrue);
       expect(local.entryById('e1'), isNull);
       expect(queue.pendingCount, 0);
+    });
+  });
+
+  group('teacherId', () {
+    test('survives a real Hive reopen and reaches the sync payload', () async {
+      final TimetableEntry owned = entry().copyWith(teacherId: 'teacher-123');
+
+      await repository.upsertEntry(owned);
+      expect(queue.dueOperations().single.payload['teacherId'], 'teacher-123');
+
+      // A non-lazy box serves reads from memory, so without closing and
+      // reopening the TypeAdapter never actually runs — and it is the adapter's
+      // new field 8 that this test exists to cover.
+      await local.close();
+      await local.init();
+
+      expect(local.entryById('e1')?.teacherId, 'teacher-123');
+      expect(local.entryById('e1')?.subject, 'Mathematics');
+    });
+
+    test('entries written before the field existed read back as unowned', () {
+      expect(entry().teacherId, '');
+      expect(TimetableEntry.fromJson(entry().toJson()).teacherId, '');
+    });
+  });
+
+  group('subjects', () {
+    test('adding a subject is exposed through the repository', () async {
+      final result = await repository.addSubject('Sanskrit');
+
+      expect(result.valueOrNull, 'Sanskrit');
+      expect(repository.subjects(), contains('Sanskrit'));
+    });
+
+    test('a blank subject name is rejected', () async {
+      final result = await repository.addSubject('  ');
+
+      expect(result.isErr, isTrue);
+    });
+
+    test('removing a subject leaves existing classes untouched', () async {
+      await local.putEntry(entry(subject: 'Mathematics'));
+
+      await repository.removeSubject('Mathematics');
+
+      expect(repository.subjects(), isNot(contains('Mathematics')));
+      expect(
+        local.entryById('e1')?.subject,
+        'Mathematics',
+        reason: 'the subject list is an input aid, not a foreign key',
+      );
+    });
+  });
+
+  group('clearAllData', () {
+    test('removes entries and sessions and queues a delete for each', () async {
+      final TimetableEntry e = entry();
+      // Written straight to the boxes so the outbox starts empty and the deletes
+      // below are unambiguous.
+      await local.putEntry(e);
+      await local.putSession(
+        ClassSession(
+          id: ClassSession.buildId(thursday, e.id),
+          entryId: e.id,
+          date: thursday,
+          status: ClassSessionStatus.completed,
+        ),
+      );
+
+      final result = await repository.clearAllData();
+
+      expect(result.valueOrNull, 2);
+      expect(local.allEntries(), isEmpty);
+      expect(local.allSessions(), isEmpty);
+
+      // Both deletes must be queued: a bare box clear would leave the outbox
+      // holding creates for records that no longer exist.
+      final Set<SyncOperationType> operations = queue
+          .dueOperations()
+          .map((PendingOperation op) => op.operation)
+          .toSet();
+      expect(operations, <SyncOperationType>{SyncOperationType.delete});
+      expect(queue.dueOperations(), hasLength(2));
+    });
+
+    test('keeps the bell schedule and the subject list', () async {
+      await local.putEntry(entry());
+
+      await repository.clearAllData();
+
+      expect(repository.periods(), hasLength(2));
+      expect(repository.subjects(), isNotEmpty);
+    });
+
+    test('clearing an empty timetable reports nothing removed', () async {
+      final result = await repository.clearAllData();
+
+      expect(result.valueOrNull, 0);
+    });
+
+    test('a record that never reached the server leaves no queued work',
+        () async {
+      await repository.upsertEntry(entry());
+
+      await repository.clearAllData();
+
+      expect(
+        queue.pendingCount,
+        0,
+        reason: 'create then delete coalesces away — there is nothing remote '
+            'to delete, so no Firestore write is spent',
+      );
     });
   });
 

@@ -1,4 +1,5 @@
-import 'package:hive_ce/hive.dart';
+// hive_ce_flutter re-exports the whole hive_ce API, so importing both is
+// redundant.
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
 import '../../shared/models/pending_operation.dart';

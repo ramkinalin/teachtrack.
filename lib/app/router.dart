@@ -4,18 +4,43 @@ import 'package:go_router/go_router.dart';
 
 import '../core/widgets/app_state_views.dart';
 import '../features/dashboard/presentation/screens/sync_diagnostics_screen.dart';
+import '../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../features/profile/presentation/profile_providers.dart';
+import '../features/settings/presentation/screens/manage_subjects_screen.dart';
+import '../features/settings/presentation/screens/settings_screen.dart';
 import '../features/timetable/presentation/screens/timetable_editor_screen.dart';
 import '../features/timetable/presentation/screens/today_screen.dart';
 import 'app_routes.dart';
 
 /// Application router.
 ///
-/// Kept in a provider so that a future auth guard can redirect based on session
-/// state without restructuring anything.
+/// The redirect is the only gate: until setup is completed every route resolves
+/// to the wizard, and once it is, the wizard is no longer reachable by URL. This
+/// keeps the "have they been introduced yet?" decision in one place instead of
+/// spread across screen builders.
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: AppRoutes.todayPath,
+    redirect: (BuildContext context, GoRouterState state) {
+      // Read the repository, not the provider: the provider refreshes from an
+      // async Hive box event, so immediately after finishing setup it would still
+      // report "needs setup" and bounce the teacher straight back to the wizard.
+      // The box itself is updated synchronously.
+      final bool needsSetup =
+          !ref.read(profileRepositoryProvider).isOnboardingCompleted;
+      final bool goingToSetup = state.matchedLocation == AppRoutes.onboardingPath;
+
+      if (needsSetup && !goingToSetup) return AppRoutes.onboardingPath;
+      if (!needsSetup && goingToSetup) return AppRoutes.todayPath;
+      return null;
+    },
     routes: <RouteBase>[
+      GoRoute(
+        path: AppRoutes.onboardingPath,
+        name: AppRoutes.onboardingName,
+        builder: (BuildContext context, GoRouterState state) =>
+            const OnboardingScreen(),
+      ),
       GoRoute(
         path: AppRoutes.todayPath,
         name: AppRoutes.todayName,
@@ -27,6 +52,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: AppRoutes.timetableName,
         builder: (BuildContext context, GoRouterState state) =>
             const TimetableEditorScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.settingsPath,
+        name: AppRoutes.settingsName,
+        builder: (BuildContext context, GoRouterState state) =>
+            const SettingsScreen(),
+        routes: <RouteBase>[
+          GoRoute(
+            path: 'subjects',
+            name: AppRoutes.subjectsName,
+            builder: (BuildContext context, GoRouterState state) =>
+                const ManageSubjectsScreen(),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.diagnosticsPath,

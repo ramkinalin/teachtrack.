@@ -43,6 +43,33 @@ abstract interface class TimetableRepository {
     String note,
   });
 
+  /// Removes every entry and session, queueing a delete for each.
+  ///
+  /// Goes through the outbox rather than clearing the boxes directly: a bare
+  /// clear would leave queued creates for records that no longer exist, and once
+  /// a backend is wired up the next sync would push the deleted data upstream.
+  ///
+  /// The bell schedule and subject list survive — they are school configuration,
+  /// not the teacher's own data.
+  Future<Result<int>> clearAllData();
+
   /// Emits whenever any timetable data changes locally.
   Stream<void> watchChanges();
+
+  // --- Subject list ----------------------------------------------------------
+  //
+  // Subjects are an input aid for the entry form, not a relational key: an entry
+  // stores its subject as text, so editing this list can never orphan a class.
+
+  List<String> subjects();
+
+  /// Returns the canonical stored name, which may differ in case from [name]
+  /// when a variant spelling already exists.
+  Future<Result<String>> addSubject(String name);
+
+  Future<Result<void>> removeSubject(String name);
+
+  Future<Result<void>> restoreDefaultSubjects();
+
+  Stream<void> watchSubjects();
 }

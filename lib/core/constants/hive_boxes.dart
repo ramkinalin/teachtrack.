@@ -29,3 +29,14 @@ abstract final class HiveTypeIds {
 abstract final class SyncMetaKeys {
   static const String lastSuccessfulSyncAt = 'last_successful_sync_at';
 }
+
+/// Keys used inside the [HiveBoxes.settings] box.
+///
+/// Single-record configuration lives here as plain JSON rather than in dedicated
+/// boxes with generated adapters. There is nothing to query and only ever one
+/// row, so a box and a TypeAdapter would be pure overhead.
+abstract final class SettingsKeys {
+  static const String onboardingCompleted = 'onboarding_completed';
+  static const String teacherProfile = 'teacher_profile';
+  static const String subjects = 'subjects';
+}
