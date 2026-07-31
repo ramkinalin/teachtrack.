@@ -23,6 +23,11 @@ dependencies:
 
   # Platform services
   connectivity_plus: ^6.0.5
+    # Class reminders and event alerts. Local only — no server, no Firebase.
+    flutter_local_notifications: ^19.0.0
+    # Required by the above to resolve a device's local timezone when scheduling.
+    timezone: ^0.10.0
+    flutter_timezone: ^4.0.0
 
   # Navigation
   go_router: ^14.2.7
