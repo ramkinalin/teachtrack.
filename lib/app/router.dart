@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/widgets/app_state_views.dart';
 import '../features/dashboard/presentation/screens/sync_diagnostics_screen.dart';
+import '../features/events/presentation/screens/events_screen.dart';
 import '../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../features/profile/presentation/profile_providers.dart';
 import '../features/settings/presentation/screens/manage_subjects_screen.dart';
@@ -52,6 +53,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: AppRoutes.timetableName,
         builder: (BuildContext context, GoRouterState state) =>
             const TimetableEditorScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.eventsPath,
+        name: AppRoutes.eventsName,
+        builder: (BuildContext context, GoRouterState state) =>
+            const EventsScreen(),
       ),
       GoRoute(
         path: AppRoutes.settingsPath,

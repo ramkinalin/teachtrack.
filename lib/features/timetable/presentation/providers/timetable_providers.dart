@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/clock.dart';
 import '../../../../core/utils/day_time.dart';
 import '../../../../shared/providers/core_providers.dart';
+import '../../../../shared/providers/today_provider.dart';
 import '../../data/local/subject_store.dart';
 import '../../data/local/timetable_local_data_source.dart';
 import '../../data/repositories/timetable_repository_impl.dart';
@@ -117,27 +118,14 @@ final entriesForWeekdayProvider =
   return entries;
 });
 
-/// The day the schedule is shown for. Overridable in tests, and the seam a
-/// future "look at tomorrow" control would use.
+/// The day the schedule is shown for, and the seam a future "look at tomorrow"
+/// control would override.
 ///
-/// Self-invalidates just after midnight. Without that, an app left open
-/// overnight would keep showing yesterday and — worse — record completions
-/// against yesterday's date, since session ids are built from this value.
-final selectedDateProvider = Provider<DateTime>((ref) {
-  final DateTime now = ref.watch(clockProvider).now();
-  final DateTime today = CalendarDay.dateOnly(now);
-
-  // Constructed rather than `add(Duration(days: 1))` so a DST transition cannot
-  // land the boundary an hour early or late.
-  final DateTime nextMidnight = DateTime(today.year, today.month, today.day + 1);
-  final Timer rollover = Timer(
-    nextMidnight.difference(now) + const Duration(seconds: 1),
-    ref.invalidateSelf,
-  );
-  ref.onDispose(rollover.cancel);
-
-  return today;
-});
+/// Delegates to [todayProvider], which handles the midnight rollover — without
+/// it an app left open overnight would record completions against yesterday,
+/// since session ids are built from this value.
+final selectedDateProvider =
+    Provider<DateTime>((ref) => ref.watch(todayProvider));
 
 class ScheduleNotifier extends _WatchingNotifier<List<ScheduledClass>> {
   @override

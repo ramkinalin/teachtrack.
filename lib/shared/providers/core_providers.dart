@@ -56,6 +56,7 @@ final Provider<List<RemoteSyncHandler>> remoteSyncHandlersProvider =
     NoopSyncHandler(SyncEntityTypes.timetableEntry),
     NoopSyncHandler(SyncEntityTypes.period),
     NoopSyncHandler(SyncEntityTypes.teacherProfile),
+    NoopSyncHandler(SyncEntityTypes.schoolEvent),
     NoopSyncHandler(SyncEntityTypes.attendance),
     NoopSyncHandler(SyncEntityTypes.equipmentCheckout),
     NoopSyncHandler(SyncEntityTypes.equipmentItem),

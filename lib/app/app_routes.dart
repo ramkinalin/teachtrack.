@@ -13,6 +13,9 @@ abstract final class AppRoutes {
   static const String timetablePath = '/timetable';
   static const String timetableName = 'timetable';
 
+  static const String eventsPath = '/events';
+  static const String eventsName = 'events';
+
   static const String settingsPath = '/settings';
   static const String settingsName = 'settings';
 

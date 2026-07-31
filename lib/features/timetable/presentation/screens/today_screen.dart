@@ -9,6 +9,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/day_time.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/sync_status_banner.dart';
+import '../../../events/presentation/widgets/upcoming_events_banner.dart';
 import '../../../profile/presentation/profile_providers.dart';
 import '../../domain/entities/class_session.dart';
 import '../../domain/entities/scheduled_class.dart';
@@ -66,6 +67,11 @@ class TodayScreen extends ConsumerWidget {
           ],
         ),
         actions: <Widget>[
+          IconButton(
+            tooltip: 'Events',
+            onPressed: () => context.pushNamed(AppRoutes.eventsName),
+            icon: const Icon(Icons.event_outlined),
+          ),
           IconButton(
             tooltip: 'Edit timetable',
             onPressed: () => context.pushNamed(AppRoutes.timetableName),
@@ -234,9 +240,14 @@ class _DayList extends StatelessWidget {
         if (index == 0) {
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            child: CurrentClassCard(
-              onMarkComplete: (ScheduledClass item) =>
-                  onAction(item, ScheduleRowAction.markCompleted),
+            child: Column(
+              children: <Widget>[
+                CurrentClassCard(
+                  onMarkComplete: (ScheduledClass item) =>
+                      onAction(item, ScheduleRowAction.markCompleted),
+                ),
+                const UpcomingEventsBanner(),
+              ],
             ),
           );
         }

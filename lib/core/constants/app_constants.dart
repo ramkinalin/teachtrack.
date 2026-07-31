@@ -26,6 +26,7 @@ abstract final class SyncEntityTypes {
   static const String timetableEntry = 'timetable_entry';
   static const String period = 'period';
   static const String teacherProfile = 'teacher_profile';
+  static const String schoolEvent = 'school_event';
   static const String attendance = 'attendance';
   static const String equipmentCheckout = 'equipment_checkout';
   static const String equipmentItem = 'equipment_item';

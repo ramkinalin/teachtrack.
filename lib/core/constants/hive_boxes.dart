@@ -11,6 +11,9 @@ abstract final class HiveBoxes {
   static const String periods = 'periods';
   static const String timetableEntries = 'timetable_entries';
   static const String classSessions = 'class_sessions';
+
+  // Events feature.
+  static const String schoolEvents = 'school_events';
 }
 
 abstract final class HiveTypeIds {
@@ -23,6 +26,8 @@ abstract final class HiveTypeIds {
   static const int timetableEntry = 11;
   static const int classSession = 12;
   static const int classSessionStatus = 13;
+  static const int schoolEvent = 14;
+  static const int schoolEventCategory = 15;
 }
 
 /// Keys used inside the [HiveBoxes.syncMeta] box.

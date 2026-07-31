@@ -48,6 +48,13 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.pushNamed(AppRoutes.timetableName),
           ),
           ListTile(
+            leading: const Icon(Icons.event_outlined),
+            title: const Text('Events'),
+            subtitle: const Text('Tests, matches, tournaments and duties'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed(AppRoutes.eventsName),
+          ),
+          ListTile(
             leading: const Icon(Icons.menu_book_outlined),
             title: const Text('Subjects'),
             subtitle: Text('$subjectCount in the dropdown'),
