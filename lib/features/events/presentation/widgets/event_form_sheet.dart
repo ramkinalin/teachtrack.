@@ -10,6 +10,7 @@ import '../../../../shared/providers/core_providers.dart';
 import '../../../profile/presentation/profile_providers.dart';
 import '../../../timetable/presentation/providers/timetable_providers.dart';
 import '../../domain/entities/school_event.dart';
+import '../../domain/event_reminder_coordinator.dart';
 import '../../domain/repositories/event_repository.dart';
 import '../providers/event_providers.dart';
 
@@ -317,16 +318,40 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
       teacherId: ref.read(activeTeacherIdProvider),
     );
 
+    final EventReminderCoordinator coordinator =
+        ref.read(eventReminderCoordinatorProvider);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
     final Result<void> result = await repository.upsert(event);
     if (!mounted) return;
 
-    result.fold(
-      (_) => Navigator.of(context).pop(),
-      (Failure failure) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(failure.message)));
-      },
+    // Deliberately not `fold` with an async branch: that infers a Future the
+    // statement then discards, so the permission request would run unobserved.
+    final Failure? failure = result.failureOrNull;
+    if (failure != null) {
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(failure.message)));
+      return;
+    }
+
+    Navigator.of(context).pop();
+
+    if (!event.hasReminders) return;
+
+    // Permission is asked here rather than at launch: the prompt makes obvious
+    // sense right after choosing reminders, and a teacher who never sets one is
+    // never interrupted. A null count means it was refused, so say so instead of
+    // leaving the bell icon promising something that will not happen.
+    final int? scheduled = await coordinator.sync(requestPermission: true);
+    if (scheduled != null) return;
+
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Saved, but reminders need notification permission — enable it in '
+          'Android settings',
+        ),
+      ),
     );
   }
 }

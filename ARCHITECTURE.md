@@ -112,6 +112,41 @@ the empty state and the wizard are actually reachable. The demo week is availabl
 from Settings, and it loads through `upsertEntry` so it obeys the same validation
 and outbox rules as real data.
 
+## Events and reminders
+
+A class test, a match, a tournament, exam duty and a meeting are one entity with a
+category. The app previously had no way to express "this happens on Friday only" —
+every entry was recurring — so this is the one-off primitive, and the next request
+of the same shape costs one enum value rather than a new table and screen.
+
+An event stores a plain time, not a reference to a period. That keeps the feature
+independent of the timetable and means adjusting the bell schedule cannot silently
+move a test.
+
+Reminders are **local** notifications: the phone's own alarm system, no server, no
+push, works with no signal. They are scheduled **inexactly** on purpose — exact
+alarms need `SCHEDULE_EXACT_ALARM`, which Google restricts to alarm and calendar
+apps and which risks a Play Store rejection. The cost is a minute or two of
+lateness, which is acceptable for "your match is in two hours".
+
+The scheduling logic splits in two so it can be tested without a device.
+`EventReminderPlanner` is pure — events plus an instant in, a list of reminders
+out — and owns every decision worth getting right: which reminders are still in
+the future, what the text says, which id belongs to which reminder. Ids are a
+hand-rolled FNV-1a hash rather than `Object.hash`, whose seed is randomised per
+process and would orphan reminders across a restart.
+
+`EventReminderCoordinator` **reconciles** rather than tracking deltas: it cancels
+everything the app owns and reschedules from the current plan. That costs a few
+platform calls and buys recovery-by-itself after a reboot, a restore or an edit.
+Overlapping calls queue behind each other; an earlier version returned early when
+busy, which callers could not distinguish from a refused permission — so saving an
+event reported a permission problem that did not exist.
+
+Notification permission is requested when a teacher saves an event with reminders,
+not at launch. A prompt before the app has explained itself is the fastest way to
+get denied.
+
 ## Hive type ids
 
 Ids in `core/constants/hive_boxes.dart` are permanent. Once a build ships,

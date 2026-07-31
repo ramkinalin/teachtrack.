@@ -195,13 +195,13 @@ class _WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OnboardingPage(
+    return const OnboardingPage(
       icon: Icons.waving_hand_outlined,
       title: 'Welcome to TeachTrack',
       body: 'Your teaching day, on your phone — and it works without internet.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const <Widget>[
+        children: <Widget>[
           _Bullet(
             icon: Icons.today_outlined,
             title: 'See today at a glance',

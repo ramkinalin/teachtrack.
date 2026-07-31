@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
+import '../features/events/presentation/providers/event_providers.dart';
 import '../shared/providers/sync_providers.dart';
+import 'app_routes.dart';
 import 'router.dart';
 
 /// Root widget.
@@ -17,8 +19,19 @@ class TeachTrackApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(syncStateProvider);
+    // Keeps pending reminders in step with stored events for the whole session.
+    ref.watch(eventRemindersProvider);
 
     final GoRouter router = ref.watch(routerProvider);
+
+    // Tapping a reminder should land on the events list rather than wherever the
+    // app happened to be left.
+    ref.listen<AsyncValue<String>>(
+      tappedReminderEventIdProvider,
+      (AsyncValue<String>? previous, AsyncValue<String> next) {
+        next.whenData((String _) => router.goNamed(AppRoutes.eventsName));
+      },
+    );
 
     return MaterialApp.router(
       title: AppConstants.appName,

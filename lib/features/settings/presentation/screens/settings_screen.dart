@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/result.dart';
+import '../../../events/presentation/providers/event_providers.dart';
 import '../../../profile/presentation/profile_form.dart';
 import '../../../profile/presentation/profile_providers.dart';
 import '../../../timetable/data/local/timetable_seed.dart';
@@ -62,6 +63,22 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.pushNamed(AppRoutes.subjectsName),
           ),
           const Divider(),
+          const _SectionHeader('Reminders'),
+          ListTile(
+            leading: const Icon(Icons.notifications_active_outlined),
+            title: const Text('Scheduled reminders'),
+            subtitle: Text(
+              ref.watch(pendingReminderCountProvider).maybeWhen(
+                    data: (int count) => count == 0
+                        ? 'None waiting'
+                        : '$count waiting on this phone',
+                    orElse: () => 'Checking…',
+                  ),
+            ),
+            trailing: const Icon(Icons.refresh_rounded),
+            onTap: () => _resyncReminders(context, ref),
+          ),
+          const Divider(),
           const _SectionHeader('Sync'),
           ListTile(
             leading: const Icon(Icons.cloud_sync_outlined),
@@ -98,6 +115,32 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
         ],
+      ),
+    );
+  }
+
+  /// Re-registers every reminder, asking for permission if it isn't granted.
+  ///
+  /// The one place a teacher can find out *why* nothing is arriving, which on
+  /// Android is nearly always a denied notification permission.
+  Future<void> _resyncReminders(BuildContext context, WidgetRef ref) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final int? count = await ref
+        .read(eventReminderCoordinatorProvider)
+        .sync(requestPermission: true);
+
+    ref.invalidate(pendingReminderCountProvider);
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          count == null
+              ? 'Reminders need notification permission — enable it in Android '
+                  'settings'
+              : count == 0
+                  ? 'Nothing to remind you about yet'
+                  : '$count reminders scheduled',
+        ),
       ),
     );
   }
