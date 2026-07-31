@@ -11,6 +11,7 @@ import '../../../profile/presentation/profile_providers.dart';
 import '../../../timetable/presentation/providers/timetable_providers.dart';
 import '../../domain/entities/school_event.dart';
 import '../../domain/event_reminder_coordinator.dart';
+import '../../domain/event_reminder_planner.dart';
 import '../../domain/repositories/event_repository.dart';
 import '../providers/event_providers.dart';
 
@@ -80,7 +81,11 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
     _date = CalendarDay.dateOnly(
       existing?.date ?? widget.initialDate ?? ref.read(clockProvider).now(),
     );
-    _startMinute = existing?.startMinute;
+    // New events start with a time; an existing one keeps whatever it had,
+    // including none. Defaulting to all-day was a trap: an all-day event anchors
+    // its reminders at 08:00, so anything added during the day silently got no
+    // reminder at all.
+    _startMinute = existing != null ? existing.startMinute : 9 * 60;
     _endMinute = existing?.endMinute;
     _reminderLeads = List<int>.from(
       existing?.reminderLeadMinutes ?? _category.defaultReminderLeadMinutes,
@@ -241,6 +246,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
               const SizedBox(height: AppSpacing.lg),
               _ReminderPicker(
                 selected: _reminderLeads,
+                isAllDay: _startMinute == null,
                 onChanged: (List<int> leads) =>
                     setState(() => _reminderLeads = leads),
               ),
@@ -337,6 +343,27 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
     Navigator.of(context).pop();
 
     if (!event.hasReminders) return;
+
+    // An event whose reminder times have all passed schedules nothing. That is
+    // correct — a notification for something that already started is noise — but
+    // silence would leave the bell icon promising something impossible. Most
+    // often this is an all-day event added later in the day: it anchors at 08:00,
+    // so every lead resolves to the past.
+    if (EventReminderPlanner.plan(<SchoolEvent>[event], ref.read(clockProvider).now())
+        .isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            event.isAllDay
+                ? 'Saved. No reminder set — an all-day event reminds from 08:00, '
+                    'which has passed. Set a time to get one.'
+                : 'Saved. No reminder set — those reminder times have passed.',
+          ),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+      return;
+    }
 
     // Permission is asked here rather than at launch: the prompt makes obvious
     // sense right after choosing reminders, and a teacher who never sets one is
@@ -473,10 +500,17 @@ class _TimeRangeField extends StatelessWidget {
 }
 
 class _ReminderPicker extends StatelessWidget {
-  const _ReminderPicker({required this.selected, required this.onChanged});
+  const _ReminderPicker({
+    required this.selected,
+    required this.onChanged,
+    this.isAllDay = false,
+  });
 
   final List<int> selected;
   final ValueChanged<List<int>> onChanged;
+
+  /// Changes what the leads are measured from, which is worth saying out loud.
+  final bool isAllDay;
 
   /// Offered lead times, in minutes.
   static const Map<int, String> _options = <int, String>{
@@ -496,8 +530,11 @@ class _ReminderPicker extends StatelessWidget {
         Text('Remind me', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Reminders may arrive a minute or two late — Android batches them to '
-          'save battery.',
+          isAllDay
+              ? 'Counted back from 08:00 on the day, since this event has no '
+                  'time. Reminders may arrive a minute or two late.'
+              : 'Counted back from the start time. Reminders may arrive a minute '
+                  'or two late — Android batches them to save battery.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

@@ -149,6 +149,18 @@ void main() {
     expect(notifications.scheduled, isEmpty);
   });
 
+  test('an all-day event added after 08:00 schedules nothing today', () async {
+    // The trap that made a real reminder silently fail: with no time, leads are
+    // counted back from 08:00, so anything added during the day is already past.
+    // Correct behaviour, but the form now says so rather than staying quiet.
+    await repository.upsert(
+      event(startMinute: null, reminders: const <int>[60]),
+    );
+
+    expect(await coordinator.sync(), 0);
+    expect(notifications.scheduled, isEmpty);
+  });
+
   test('past events contribute nothing', () async {
     await repository.upsert(event(date: DateTime(2026, 7, 1)));
 

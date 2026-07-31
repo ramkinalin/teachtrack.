@@ -214,4 +214,6 @@ class FakeNotificationService implements NotificationService {
   @override
   Future<List<PendingNotificationRequest>> pending() async =>
       scheduled.values.toList(growable: false);
+
+  Future<void> dispose() => taps.close();
 }
