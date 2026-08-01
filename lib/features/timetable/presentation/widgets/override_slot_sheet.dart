@@ -14,15 +14,12 @@ import '../providers/timetable_providers.dart';
 /// itself: the editor holds the whole override in memory and validates it as one
 /// aggregate, so a half-finished exam week can never reach storage.
 class OverrideSlotSheet extends ConsumerStatefulWidget {
-  OverrideSlotSheet({
+  const OverrideSlotSheet({
     required this.allowedDates,
     super.key,
     this.existing,
     this.initialDate,
-  }) : assert(
-          allowedDates.length > 0,
-          'A sitting needs at least one date it may fall on.',
-        );
+  });
 
   /// Dates the sitting may fall on — the override's range.
   final List<DateTime> allowedDates;
@@ -36,6 +33,13 @@ class OverrideSlotSheet extends ConsumerStatefulWidget {
     OverrideSlot? existing,
     DateTime? initialDate,
   }) {
+    // Checked here rather than in the constructor: a const constructor's assert
+    // must be a potentially-constant expression, which a list's emptiness is not.
+    assert(
+      allowedDates.isNotEmpty,
+      'A sitting needs at least one date it may fall on.',
+    );
+
     return showModalBottomSheet<OverrideSlot>(
       context: context,
       isScrollControlled: true,

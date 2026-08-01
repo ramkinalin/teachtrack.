@@ -4,8 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/errors/failures.dart';
+import '../../../../core/utils/day_time.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/sheet_layout.dart';
+import '../../../backup/domain/backup_payload.dart';
+import '../../../backup/domain/backup_repository.dart';
+import '../../../backup/presentation/backup_providers.dart';
 import '../../../events/presentation/providers/event_providers.dart';
 import '../../../profile/presentation/profile_form.dart';
 import '../../../profile/presentation/profile_providers.dart';
@@ -96,6 +101,22 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.pushNamed(AppRoutes.diagnosticsName),
           ),
           const Divider(),
+          const _SectionHeader('Backup'),
+          ListTile(
+            leading: const Icon(Icons.upload_file_outlined),
+            title: const Text('Export a backup'),
+            subtitle: const Text(
+              'Save or send a file holding everything on this phone',
+            ),
+            onTap: () => _export(context, ref),
+          ),
+          ListTile(
+            leading: const Icon(Icons.restore_page_outlined),
+            title: const Text('Restore from a backup'),
+            subtitle: const Text('Replaces what is on this phone'),
+            onTap: () => _restore(context, ref),
+          ),
+          const Divider(),
           const _SectionHeader('Testing and reset'),
           ListTile(
             leading: const Icon(Icons.auto_awesome_outlined),
@@ -124,6 +145,103 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xl),
         ],
       ),
+    );
+  }
+
+  Future<void> _export(BuildContext context, WidgetRef ref) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final BackupRepository repository = ref.read(backupRepositoryProvider);
+    final BackupPayload payload = repository.snapshot();
+
+    final Result<void> result = await ref.read(backupFileServiceProvider).share(
+          json: payload.encode(),
+          fileName: repository.suggestedFileName(),
+        );
+
+    result.fold(
+      (_) {},
+      (failure) =>
+          messenger.showSnackBar(SnackBar(content: Text(failure.message))),
+    );
+  }
+
+  /// Picks a file, shows what is in it, and only then touches anything.
+  ///
+  /// The confirmation names the contents on purpose: a restore is destructive and
+  /// irreversible, and this is the last moment a teacher can tell that they picked
+  /// the wrong file.
+  Future<void> _restore(BuildContext context, WidgetRef ref) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final BackupRepository repository = ref.read(backupRepositoryProvider);
+
+    final Result<String?> picked =
+        await ref.read(backupFileServiceProvider).pickJson();
+    if (!context.mounted) return;
+
+    final Failure? pickFailure = picked.failureOrNull;
+    if (pickFailure != null) {
+      messenger.showSnackBar(SnackBar(content: Text(pickFailure.message)));
+      return;
+    }
+
+    final String? json = picked.valueOrNull;
+    if (json == null) return; // Cancelled.
+
+    final BackupPayload payload;
+    try {
+      payload = BackupPayload.decode(json);
+    } on BackupFormatException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    final RestoreMode? mode = await showDialog<RestoreMode>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('Restore this backup?'),
+        content: Text(
+          'From ${CalendarDay.key(payload.exportedAt)}, holding '
+          '${payload.contentsSummary}.\n\n'
+          'Replace removes what is on this phone first. Merge keeps what is here '
+          'and adds anything missing.\n\n'
+          'Replace cannot be undone.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(RestoreMode.merge),
+            child: const Text('Merge'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(context).pop(RestoreMode.replace),
+            child: const Text('Replace'),
+          ),
+        ],
+      ),
+    );
+
+    if (mode == null || !context.mounted) return;
+
+    final Result<RestoreSummary> result =
+        await repository.restore(payload, mode: mode);
+
+    result.fold(
+      (RestoreSummary summary) => messenger.showSnackBar(
+        SnackBar(
+          content: Text(summary.summary),
+          duration: const Duration(seconds: 6),
+        ),
+      ),
+      (failure) =>
+          messenger.showSnackBar(SnackBar(content: Text(failure.message))),
     );
   }
 
