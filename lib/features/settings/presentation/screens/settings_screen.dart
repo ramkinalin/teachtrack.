@@ -116,6 +116,25 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('Replaces what is on this phone'),
             onTap: () => _restore(context, ref),
           ),
+          // Said out loud because Auto Backup is invisible: a teacher who assumes
+          // it is protecting them, when their phone has Google backup switched
+          // off, would find out at the worst possible moment.
+          Padding(
+            padding: const EdgeInsets.only(
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              bottom: AppSpacing.sm,
+            ),
+            child: Text(
+              'Android also backs this app up to your Google account and restores '
+              'it on a new phone, if you have backup switched on in your phone '
+              'settings. You cannot see or trigger that — the export file above '
+              'is the one you control.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
           const Divider(),
           const _SectionHeader('Testing and reset'),
           ListTile(
