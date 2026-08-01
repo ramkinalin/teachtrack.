@@ -117,7 +117,7 @@ class BackupPayload {
       throw const BackupFormatException('That backup has no version.');
     }
     if (version > currentVersion) {
-      throw BackupFormatException(
+      throw const BackupFormatException(
         'That backup was made by a newer version of TeachTrack. Update the app '
         'and try again.',
       );

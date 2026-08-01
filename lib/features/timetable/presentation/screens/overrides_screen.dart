@@ -5,7 +5,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/app_state_views.dart';
 import '../../../../shared/providers/today_provider.dart';
-import '../../domain/entities/schedule_schedule.dart';
+import '../../domain/entities/schedule_override.dart';
 import '../../domain/repositories/override_repository.dart';
 import '../providers/timetable_providers.dart';
 import 'override_editor_screen.dart';

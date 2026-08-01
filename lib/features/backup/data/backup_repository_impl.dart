@@ -16,7 +16,6 @@ import '../../timetable/data/local/override_local_data_source.dart';
 import '../../timetable/data/local/subject_store.dart';
 import '../../timetable/data/local/timetable_local_data_source.dart';
 import '../../timetable/domain/entities/class_session.dart';
-import '../../timetable/domain/entities/period.dart';
 import '../../timetable/domain/entities/schedule_override.dart';
 import '../../timetable/domain/entities/timetable_entry.dart';
 import '../../timetable/domain/repositories/override_repository.dart';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/sheet_layout.dart';
 
 /// Sheet for writing what was actually taught in one lesson.
 ///
@@ -55,12 +56,7 @@ class _SessionNoteSheetState extends State<SessionNoteSheet> {
     final bool hadNote = widget.initialNote.trim().isNotEmpty;
 
     return Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.md,
-        right: AppSpacing.md,
-        top: AppSpacing.md,
-        bottom: AppSpacing.md + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: sheetContentPadding(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
