@@ -1,6 +1,7 @@
 import '../../../../core/utils/result.dart';
 import '../entities/class_session.dart';
 import '../entities/period.dart';
+import '../entities/schedule_override.dart';
 import '../entities/scheduled_class.dart';
 import '../entities/timetable_entry.dart';
 
@@ -21,9 +22,17 @@ abstract interface class TimetableRepository {
 
   TimetableEntry? entryById(String id);
 
-  /// Entries for [date]'s weekday, joined with their periods and any recorded
-  /// session, ordered by period start time.
+  /// What is happening on [date].
+  ///
+  /// A [ScheduleOverride] covering the date replaces the weekly pattern: a
+  /// holiday yields an empty list, and an exam or special schedule yields its
+  /// sittings. Otherwise it is the date's weekday entries joined with their
+  /// periods and any recorded session, ordered by period start time.
   List<ScheduledClass> scheduleFor(DateTime date);
+
+  /// The override covering [date], so the UI can say why the day looks unusual.
+  /// `null` when the normal timetable applies.
+  ScheduleOverride? overrideFor(DateTime date);
 
   /// Rejects an entry that would occupy a slot another entry already holds.
   Result<void> validateEntry(TimetableEntry entry);

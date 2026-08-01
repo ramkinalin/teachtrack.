@@ -7,9 +7,11 @@ import '../../../../core/utils/result.dart';
 import '../../../../shared/models/pending_operation.dart';
 import '../../domain/entities/class_session.dart';
 import '../../domain/entities/period.dart';
+import '../../domain/entities/schedule_override.dart';
 import '../../domain/entities/scheduled_class.dart';
 import '../../domain/entities/timetable_entry.dart';
 import '../../domain/repositories/timetable_repository.dart';
+import '../local/override_local_data_source.dart';
 import '../local/subject_store.dart';
 import '../local/timetable_local_data_source.dart';
 
@@ -24,14 +26,20 @@ class TimetableRepositoryImpl implements TimetableRepository {
     required TimetableLocalDataSource local,
     required SubjectStore subjects,
     required SyncQueueService syncQueue,
+    OverrideLocalDataSource? overrides,
     Clock clock = const Clock(),
   })  : _local = local,
         _subjects = subjects,
         _syncQueue = syncQueue,
+        _overrides = overrides,
         _clock = clock;
 
   final TimetableLocalDataSource _local;
   final SubjectStore _subjects;
+
+  /// Optional so existing tests and any caller that only needs the weekly
+  /// pattern keep working; when absent, every day falls back to the timetable.
+  final OverrideLocalDataSource? _overrides;
   final SyncQueueService _syncQueue;
   final Clock _clock;
 
@@ -52,8 +60,21 @@ class TimetableRepositoryImpl implements TimetableRepository {
   TimetableEntry? entryById(String id) => _local.entryById(id);
 
   @override
+  ScheduleOverride? overrideFor(DateTime date) => _overrides?.covering(date);
+
+  @override
   List<ScheduledClass> scheduleFor(DateTime date) {
     final DateTime day = CalendarDay.dateOnly(date);
+
+    // Overrides win over the weekly pattern. A holiday deliberately yields an
+    // empty day rather than the normal timetable with everything cancelled.
+    final ScheduleOverride? override = _overrides?.covering(day);
+    if (override != null) {
+      return override.isHoliday
+          ? const <ScheduledClass>[]
+          : _scheduleFromOverride(override, day);
+    }
+
     final List<TimetableEntry> entries = _local.entriesForWeekday(day.weekday);
 
     final List<ScheduledClass> schedule = <ScheduledClass>[];
@@ -78,6 +99,54 @@ class TimetableRepositoryImpl implements TimetableRepository {
           a.period.sortOrder.compareTo(b.period.sortOrder),
     );
     return schedule;
+  }
+
+  /// Turns an override's sittings for one date into the day view.
+  ///
+  /// The entry and period are synthesised, not stored: `ScheduledClass` is a
+  /// derived type, so giving a sitting the same shape as a lesson is what lets
+  /// the whole existing day UI — ordering, countdown, one-tap marking — work
+  /// unchanged. Ids are prefixed so a sitting's session record can never collide
+  /// with a lesson's.
+  List<ScheduledClass> _scheduleFromOverride(
+    ScheduleOverride override,
+    DateTime day,
+  ) {
+    final List<OverrideSlot> slots = override.slotsOn(day);
+
+    return <ScheduledClass>[
+      for (int i = 0; i < slots.length; i++)
+        () {
+          final OverrideSlot slot = slots[i];
+          final String entryId = 'slot:${slot.id}';
+
+          return ScheduledClass(
+            entry: TimetableEntry(
+              id: entryId,
+              weekday: day.weekday,
+              periodId: 'slot:${slot.id}',
+              subject: slot.title,
+              classGroup: slot.classGroup,
+              room: slot.location,
+              notes: slot.notes,
+              teacherId: override.teacherId,
+            ),
+            period: Period(
+              id: 'slot:${slot.id}',
+              label: override.kind.label,
+              startMinute: slot.startMinute,
+              // A sitting with no end time is shown as a nominal hour so it
+              // occupies the day sensibly and the countdown has something to
+              // count down to.
+              endMinute: slot.endMinute ?? (slot.startMinute + 60),
+              sortOrder: i,
+            ),
+            date: day,
+            session: _local.sessionById(ClassSession.buildId(day, entryId)),
+            slot: slot,
+          );
+        }(),
+    ];
   }
 
   @override
@@ -310,6 +379,22 @@ class TimetableRepositoryImpl implements TimetableRepository {
           payload: <String, dynamic>{'id': session.id},
         );
         removed++;
+      }
+
+      // Overrides go too. Leaving them would resurrect exam sittings on top of an
+      // otherwise wiped timetable, which is a confusing state to hand back.
+      final OverrideLocalDataSource? overrides = _overrides;
+      if (overrides != null) {
+        for (final ScheduleOverride override in overrides.all()) {
+          await overrides.delete(override.id);
+          await _syncQueue.enqueue(
+            entityType: SyncEntityTypes.scheduleOverride,
+            entityId: override.id,
+            operation: SyncOperationType.delete,
+            payload: <String, dynamic>{'id': override.id},
+          );
+          removed++;
+        }
       }
 
       return Ok<int>(removed);

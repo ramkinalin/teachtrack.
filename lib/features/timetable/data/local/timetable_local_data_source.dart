@@ -142,11 +142,16 @@ class TimetableLocalDataSource {
     ]);
   }
 
+  /// Clears the list *before* awaiting, so a listener that re-subscribes during
+  /// its own synchronous teardown sees an empty list and re-attaches properly.
   Future<void> _detachBoxListeners() async {
-    for (final StreamSubscription<BoxEvent> sub in _changeSubs) {
+    final List<StreamSubscription<BoxEvent>> subs =
+        List<StreamSubscription<BoxEvent>>.from(_changeSubs);
+    _changeSubs.clear();
+
+    for (final StreamSubscription<BoxEvent> sub in subs) {
       await sub.cancel();
     }
-    _changeSubs.clear();
   }
 
   /// Closes the boxes and the change stream.

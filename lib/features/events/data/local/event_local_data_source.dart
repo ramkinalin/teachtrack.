@@ -58,9 +58,13 @@ class EventLocalDataSource {
       onListen: () {
         _changeSub ??= box.watch().listen((BoxEvent _) => _changes?.add(null));
       },
-      onCancel: () async {
-        await _changeSub?.cancel();
+      // Cleared before awaiting: a listener that re-subscribes during its own
+      // synchronous teardown would otherwise find the old subscription still set,
+      // attach nothing, and be left with an unwatched box.
+      onCancel: () {
+        final StreamSubscription<BoxEvent>? sub = _changeSub;
         _changeSub = null;
+        return sub?.cancel();
       },
     );
     return _changes!.stream;

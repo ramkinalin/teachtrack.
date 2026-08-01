@@ -6,12 +6,16 @@ import '../../../../core/utils/clock.dart';
 import '../../../../core/utils/day_time.dart';
 import '../../../../shared/providers/core_providers.dart';
 import '../../../../shared/providers/today_provider.dart';
+import '../../data/local/override_local_data_source.dart';
 import '../../data/local/subject_store.dart';
 import '../../data/local/timetable_local_data_source.dart';
+import '../../data/repositories/override_repository_impl.dart';
 import '../../data/repositories/timetable_repository_impl.dart';
 import '../../domain/entities/period.dart';
+import '../../domain/entities/schedule_override.dart';
 import '../../domain/entities/scheduled_class.dart';
 import '../../domain/entities/timetable_entry.dart';
+import '../../domain/repositories/override_repository.dart';
 import '../../domain/repositories/timetable_repository.dart';
 import '../../domain/schedule_resolver.dart';
 
@@ -30,14 +34,46 @@ final subjectStoreProvider = Provider<SubjectStore>((ref) {
   );
 });
 
+/// Overridden in `main()` with the initialised data source.
+final overrideLocalDataSourceProvider = Provider<OverrideLocalDataSource>(
+  (ref) => throw UnimplementedError(
+    'overrideLocalDataSourceProvider must be overridden in main() with an '
+    'initialised OverrideLocalDataSource.',
+  ),
+);
+
+final overrideRepositoryProvider = Provider<OverrideRepository>((ref) {
+  return OverrideRepositoryImpl(
+    local: ref.watch(overrideLocalDataSourceProvider),
+    syncQueue: ref.watch(syncQueueServiceProvider),
+    clock: ref.watch(clockProvider),
+  );
+});
+
 final Provider<TimetableRepository> timetableRepositoryProvider =
     Provider<TimetableRepository>((ref) {
   return TimetableRepositoryImpl(
     local: ref.watch(timetableLocalDataSourceProvider),
     subjects: ref.watch(subjectStoreProvider),
     syncQueue: ref.watch(syncQueueServiceProvider),
+    overrides: ref.watch(overrideLocalDataSourceProvider),
     clock: ref.watch(clockProvider),
   );
+});
+
+/// The override covering the shown day, or `null` on a normal day.
+///
+/// Self-invalidates when overrides change, so the value itself is the signal —
+/// an earlier version returned a counter that never actually changed, so nothing
+/// downstream ever rebuilt.
+final activeOverrideProvider = Provider<ScheduleOverride?>((ref) {
+  final OverrideRepository repository = ref.watch(overrideRepositoryProvider);
+
+  final StreamSubscription<void> subscription =
+      repository.watchChanges().listen((void _) => ref.invalidateSelf());
+  ref.onDispose(subscription.cancel);
+
+  return repository.covering(ref.watch(selectedDateProvider));
 });
 
 /// Subject names for the entry form dropdown, refreshed when the list is edited.
@@ -134,8 +170,10 @@ class ScheduleNotifier extends _WatchingNotifier<List<ScheduledClass>> {
 
   @override
   List<ScheduledClass> build() {
-    // Rebuild when the target date changes, as well as on data changes.
+    // Rebuild when the target date changes, as well as on data changes — and
+    // when an override appears or goes, since that replaces the whole day.
     ref.watch(selectedDateProvider);
+    ref.watch(activeOverrideProvider);
     return super.build();
   }
 }

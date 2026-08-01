@@ -5,6 +5,7 @@ import 'app/app.dart';
 import 'core/services/local_storage_service.dart';
 import 'features/events/data/local/event_local_data_source.dart';
 import 'features/events/presentation/providers/event_providers.dart';
+import 'features/timetable/data/local/override_local_data_source.dart';
 import 'features/timetable/data/local/subject_store.dart';
 import 'features/timetable/data/local/timetable_local_data_source.dart';
 import 'features/timetable/data/local/timetable_seed.dart';
@@ -27,6 +28,9 @@ Future<void> main() async {
   final EventLocalDataSource eventLocal = EventLocalDataSource();
   await eventLocal.init();
 
+  final OverrideLocalDataSource overrideLocal = OverrideLocalDataSource();
+  await overrideLocal.init();
+
   // A bell schedule and a subject list are defaults every school needs. Sample
   // classes are NOT seeded — a new install must reach the real empty state so
   // setup is visible. The demo week is available from Settings instead.
@@ -39,6 +43,7 @@ Future<void> main() async {
         localStorageServiceProvider.overrideWithValue(storage),
         timetableLocalDataSourceProvider.overrideWithValue(timetableLocal),
         eventLocalDataSourceProvider.overrideWithValue(eventLocal),
+        overrideLocalDataSourceProvider.overrideWithValue(overrideLocal),
       ],
       child: const TeachTrackApp(),
     ),

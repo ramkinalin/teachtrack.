@@ -111,6 +111,16 @@ class ScheduleEntryTile extends StatelessWidget {
                           color: scheme.onSurfaceVariant,
                         ),
                       ],
+                      // On duty is the obligation you get in trouble for missing,
+                      // so it earns a marker of its own.
+                      if (item.isInvigilating) ...<Widget>[
+                        const SizedBox(width: AppSpacing.sm),
+                        Icon(
+                          Icons.how_to_reg_outlined,
+                          size: 16,
+                          color: scheme.primary,
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -160,9 +170,14 @@ class ScheduleEntryTile extends StatelessWidget {
   }
 
   String _subtitle() {
+    final String slotSubject = item.slot?.subject ?? '';
+
     final List<String> parts = <String>[
-      item.entry.classGroup,
+      if (item.entry.classGroup.isNotEmpty) item.entry.classGroup,
+      if (slotSubject.isNotEmpty) slotSubject,
       if (item.entry.room.isNotEmpty) item.entry.room,
+      if (item.isInvigilating) 'On duty',
+      if (item.isMySubject && !item.isInvigilating) 'Your subject',
       if (item.isCancelled) 'Cancelled',
     ];
     return parts.join(' · ');

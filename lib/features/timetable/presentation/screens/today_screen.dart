@@ -12,6 +12,7 @@ import '../../../../core/widgets/sync_status_banner.dart';
 import '../../../events/presentation/widgets/upcoming_events_banner.dart';
 import '../../../profile/presentation/profile_providers.dart';
 import '../../domain/entities/class_session.dart';
+import '../../domain/entities/schedule_override.dart';
 import '../../domain/entities/scheduled_class.dart';
 import '../../domain/repositories/timetable_repository.dart';
 import '../../domain/schedule_resolver.dart';
@@ -87,11 +88,13 @@ class TodayScreen extends ConsumerWidget {
       body: Column(
         children: <Widget>[
           const SyncStatusBanner(),
+          const _OverrideBanner(),
           Expanded(
             child: schedule.isEmpty
                 ? _EmptyDay(
                     weekday: date.weekday,
                     hasAnyClasses: ref.watch(allEntriesProvider).isNotEmpty,
+                    override: ref.watch(activeOverrideProvider),
                   )
                 : _DayList(
                     schedule: schedule,
@@ -317,9 +320,59 @@ class _UnmarkedNudge extends ConsumerWidget {
   }
 }
 
+/// Says why today does not look like a normal week.
+///
+/// Without this, an exam day would simply show a short unfamiliar list and a
+/// holiday would look identical to a timetable that had gone missing.
+class _OverrideBanner extends ConsumerWidget {
+  const _OverrideBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ScheduleOverride? override = ref.watch(activeOverrideProvider);
+    if (override == null) return const SizedBox.shrink();
+
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      color: scheme.tertiaryContainer,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            override.isHoliday
+                ? Icons.beach_access_outlined
+                : Icons.event_note_outlined,
+            size: 18,
+            color: scheme.onTertiaryContainer,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              '${override.name} · ${override.kind.label} · '
+              'normal timetable suspended',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onTertiaryContainer,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Empty state that offers the next action rather than just reporting nothing.
 class _EmptyDay extends StatelessWidget {
-  const _EmptyDay({required this.weekday, required this.hasAnyClasses});
+  const _EmptyDay({
+    required this.weekday,
+    required this.hasAnyClasses,
+    this.override,
+  });
 
   final int weekday;
 
@@ -327,8 +380,15 @@ class _EmptyDay extends StatelessWidget {
   /// full week and a free Saturday should not be told to go set up a timetable.
   final bool hasAnyClasses;
 
+  /// Set when the day is empty because an override says so, which needs no call
+  /// to action at all.
+  final ScheduleOverride? override;
+
   @override
   Widget build(BuildContext context) {
+    final ScheduleOverride? active = override;
+    final bool showAddAction = active == null && !hasAnyClasses;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -336,7 +396,7 @@ class _EmptyDay extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Icon(
-              hasAnyClasses
+              active != null || hasAnyClasses
                   ? Icons.beach_access_outlined
                   : Icons.event_available_outlined,
               size: 40,
@@ -344,23 +404,30 @@ class _EmptyDay extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              hasAnyClasses
-                  ? 'No classes on ${CalendarDay.longLabel(weekday)}'
-                  : 'Your timetable is empty',
+              active != null
+                  ? active.name
+                  : hasAnyClasses
+                      ? 'No classes on ${CalendarDay.longLabel(weekday)}'
+                      : 'Your timetable is empty',
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              hasAnyClasses
-                  ? 'Enjoy the day off.'
-                  : 'Add your classes once and TeachTrack shows them every week.',
+              active != null
+                  ? (active.isHoliday
+                      ? 'No school today.'
+                      : 'Nothing scheduled for you on this day.')
+                  : hasAnyClasses
+                      ? 'Enjoy the day off.'
+                      : 'Add your classes once and TeachTrack shows them every '
+                          'week.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
-            if (!hasAnyClasses) ...<Widget>[
+            if (showAddAction) ...<Widget>[
               const SizedBox(height: AppSpacing.lg),
               FilledButton.icon(
                 onPressed: () => context.pushNamed(AppRoutes.timetableName),
