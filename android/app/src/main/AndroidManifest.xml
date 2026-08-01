@@ -19,9 +19,24 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
 
+    <!-- Android Auto Backup: the app's data is copied to the user's own Google
+         account and restored automatically on reinstall or a new phone. Costs
+         nothing, needs no sign-in, no OAuth and no server, because it is Android
+         doing the work against the user's own Drive quota.
+
+         Two rule files because Android 12 split the format; see each for what it
+         covers. Both point at the app's files directory, where Hive lives.
+
+         This is a safety net, not a replacement for Settings → Export a backup.
+         It only runs if the user has Google backup switched on, only over
+         unmetered connections while charging and idle, and the teacher cannot
+         trigger it or see what is in it. The export file is the one they control. -->
     <application
         android:label="TeachTrack"
         android:name="${applicationName}"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

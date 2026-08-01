@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android Auto Backup rules for API 31 and below.
+
+  Hive keeps its boxes in the app's files directory, so including that one domain
+  covers the timetable, marked lessons, notes, events, exam schedules, the subject
+  list and the profile — everything a teacher would hate to lose.
+
+  Nothing is excluded on purpose. There are no credentials or tokens stored, and
+  the pending-operations outbox is worth restoring too: a queued write that has not
+  reached a backend yet should survive a phone change rather than vanish.
+
+  Auto Backup caps an app at 25 MB. A decade of daily use here is a few megabytes,
+  so the ceiling is not a concern.
+-->
+<full-backup-content>
+    <include domain="file" path="." />
+</full-backup-content>
