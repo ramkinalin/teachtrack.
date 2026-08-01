@@ -354,7 +354,7 @@ class _OverrideBanner extends ConsumerWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              '${override.name} · ${override.kind.label} · '
+              '${active.name} · ${active.kind.label} · '
               'normal timetable suspended',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onTertiaryContainer,

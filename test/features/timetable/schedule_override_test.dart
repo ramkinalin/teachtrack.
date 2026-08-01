@@ -493,11 +493,23 @@ void main() {
       expect(result.valueOrNull, 1);
       expect(overrides.all(), isEmpty);
       expect(
-        queue.dueOperations().single.operation,
-        SyncOperationType.delete,
-        reason: 'the create coalesces away, leaving nothing queued for a record '
-            'the server never saw',
+        queue.pendingCount,
+        0,
+        reason: 'the queued create coalesces with the delete and both drop — the '
+            'server never saw this override, so there is nothing to tell it',
       );
+    });
+
+    test('an already-synced override queues a delete when cleared', () async {
+      // Written straight to the box so nothing is queued, mimicking an override
+      // that has already been pushed upstream.
+      await overrideLocal.put(override(slots: <OverrideSlot>[slot()]));
+
+      await timetable.clearAllData();
+
+      final PendingOperation op = queue.dueOperations().single;
+      expect(op.entityType, SyncEntityTypes.scheduleOverride);
+      expect(op.operation, SyncOperationType.delete);
     });
   });
 
