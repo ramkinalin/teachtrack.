@@ -94,7 +94,7 @@ class TodayScreen extends ConsumerWidget {
                 ? _EmptyDay(
                     weekday: date.weekday,
                     hasAnyClasses: ref.watch(allEntriesProvider).isNotEmpty,
-                    override: ref.watch(activeOverrideProvider),
+                    activeOverride: ref.watch(activeOverrideProvider),
                   )
                 : _DayList(
                     schedule: schedule,
@@ -329,8 +329,9 @@ class _OverrideBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ScheduleOverride? override = ref.watch(activeOverrideProvider);
-    if (override == null) return const SizedBox.shrink();
+    // Named `active`, not `override`, for the same shadowing reason as below.
+    final ScheduleOverride? active = ref.watch(activeOverrideProvider);
+    if (active == null) return const SizedBox.shrink();
 
     final ColorScheme scheme = Theme.of(context).colorScheme;
 
@@ -344,7 +345,7 @@ class _OverrideBanner extends ConsumerWidget {
       child: Row(
         children: <Widget>[
           Icon(
-            override.isHoliday
+            active.isHoliday
                 ? Icons.beach_access_outlined
                 : Icons.event_note_outlined,
             size: 18,
@@ -371,7 +372,7 @@ class _EmptyDay extends StatelessWidget {
   const _EmptyDay({
     required this.weekday,
     required this.hasAnyClasses,
-    this.override,
+    this.activeOverride,
   });
 
   final int weekday;
@@ -382,11 +383,14 @@ class _EmptyDay extends StatelessWidget {
 
   /// Set when the day is empty because an override says so, which needs no call
   /// to action at all.
-  final ScheduleOverride? override;
+  ///
+  /// Deliberately not named `override`: a field of that name shadows the
+  /// `@override` annotation for the whole class.
+  final ScheduleOverride? activeOverride;
 
   @override
   Widget build(BuildContext context) {
-    final ScheduleOverride? active = override;
+    final ScheduleOverride? active = activeOverride;
     final bool showAddAction = active == null && !hasAnyClasses;
 
     return Center(

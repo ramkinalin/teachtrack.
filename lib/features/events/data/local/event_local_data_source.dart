@@ -61,10 +61,12 @@ class EventLocalDataSource {
       // Cleared before awaiting: a listener that re-subscribes during its own
       // synchronous teardown would otherwise find the old subscription still set,
       // attach nothing, and be left with an unwatched box.
+      // Not awaited: a broadcast controller's onCancel is `void Function()`, so
+      // the cancel future cannot be returned from here.
       onCancel: () {
         final StreamSubscription<BoxEvent>? sub = _changeSub;
         _changeSub = null;
-        return sub?.cancel();
+        unawaited(sub?.cancel());
       },
     );
     return _changes!.stream;

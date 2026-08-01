@@ -88,10 +88,12 @@ class OverrideLocalDataSource {
       // old value was still set, attach nothing, and then have the pending
       // microtask null it out — leaving the box unwatched and the day view frozen
       // for the rest of the session.
+      // Not awaited: a broadcast controller's onCancel is `void Function()`, so
+      // the cancel future cannot be returned from here.
       onCancel: () {
         final StreamSubscription<BoxEvent>? sub = _changeSub;
         _changeSub = null;
-        return sub?.cancel();
+        unawaited(sub?.cancel());
       },
     );
     return _changes!.stream;
