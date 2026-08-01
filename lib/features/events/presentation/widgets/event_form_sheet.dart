@@ -6,6 +6,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/day_time.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/widgets/sheet_layout.dart';
 import '../../../../shared/providers/core_providers.dart';
 import '../../../profile/presentation/profile_providers.dart';
 import '../../../timetable/presentation/providers/timetable_providers.dart';
@@ -115,12 +116,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
     final bool isFixture = _category.isFixture;
 
     return Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.md,
-        right: AppSpacing.md,
-        top: AppSpacing.md,
-        bottom: AppSpacing.md + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: sheetContentPadding(context),
       child: SingleChildScrollView(
         child: Form(
           key: _formKey,

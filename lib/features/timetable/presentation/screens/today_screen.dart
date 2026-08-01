@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/app_routes.dart';
+import '../../../../core/constants/app_contact.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/day_time.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/widgets/contact_footer.dart';
 import '../../../../core/widgets/sync_status_banner.dart';
 import '../../../events/presentation/widgets/upcoming_events_banner.dart';
 import '../../../profile/presentation/profile_providers.dart';
@@ -103,6 +105,7 @@ class TodayScreen extends ConsumerWidget {
                         _handleAction(context, ref, item, action),
                   ),
           ),
+          if (AppContact.hasAnyContact) const ContactFooter(),
         ],
       ),
     );

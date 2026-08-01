@@ -16,6 +16,9 @@ abstract final class AppRoutes {
   static const String eventsPath = '/events';
   static const String eventsName = 'events';
 
+  static const String overridesPath = '/schedules';
+  static const String overridesName = 'schedules';
+
   static const String settingsPath = '/settings';
   static const String settingsName = 'settings';
 

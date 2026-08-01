@@ -81,5 +81,22 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
+        <!-- Required from Android 11 (API 30) for the contact links in the home
+             screen footer. Without these declarations `canLaunchUrl` reports
+             false and the links silently do nothing, because an app may no longer
+             see which other apps can handle an intent unless it says what it is
+             looking for.
+
+             https covers the wa.me WhatsApp link; SENDTO with a mailto scheme
+             covers the email link. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
+        </intent>
     </queries>
 </manifest>

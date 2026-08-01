@@ -124,6 +124,23 @@ class OverrideSlot {
         notes: notes ?? this.notes,
       );
 
+  /// [copyWith] deliberately cannot change the id — a sitting's identity is
+  /// fixed, and its session record is keyed on it. Duplicating one is the single
+  /// case where a new id is wanted, so it gets its own explicit method.
+  OverrideSlot withId(String newId) => OverrideSlot(
+        id: newId,
+        date: date,
+        startMinute: startMinute,
+        endMinute: endMinute,
+        title: title,
+        classGroup: classGroup,
+        subject: subject,
+        location: location,
+        isInvigilating: isInvigilating,
+        isMySubject: isMySubject,
+        notes: notes,
+      );
+
   @override
   String toString() =>
       'OverrideSlot($id, ${CalendarDay.key(date)}, $timeRangeLabel, $title)';
@@ -212,6 +229,44 @@ class ScheduleOverride {
       ..sort((OverrideSlot a, OverrideSlot b) =>
           a.startMinute.compareTo(b.startMinute));
     return matching;
+  }
+
+  /// Every date in the range, in order.
+  List<DateTime> get dates => <DateTime>[
+        for (int i = 0; i < dayCount; i++)
+          // Constructed rather than added, so a DST boundary cannot skip or
+          // repeat a day.
+          DateTime(startDate.year, startDate.month, startDate.day + i),
+      ];
+
+  /// This override's slots with [from]'s sittings duplicated onto [to].
+  ///
+  /// An exam week is five days of near-identical entries, so copying a day is
+  /// the difference between filling one in and filling five. Anything already on
+  /// [to] is kept — copying adds, it does not replace, because silently deleting
+  /// a teacher's work would be far worse than a duplicate they can remove.
+  ///
+  /// Ids come from [idFor] rather than being generated here, which keeps this
+  /// pure and testable. Returns the list unchanged when [to] falls outside the
+  /// range or is the same day as [from].
+  List<OverrideSlot> slotsWithDayCopied({
+    required DateTime from,
+    required DateTime to,
+    required String Function(OverrideSlot source) idFor,
+  }) {
+    final DateTime source = CalendarDay.dateOnly(from);
+    final DateTime target = CalendarDay.dateOnly(to);
+
+    if (CalendarDay.isSameDay(source, target)) return slots;
+    if (!covers(target)) return slots;
+
+    final List<OverrideSlot> copies = slotsOn(source)
+        .map((OverrideSlot s) => s.copyWith(date: target).withId(idFor(s)))
+        .toList(growable: false);
+
+    if (copies.isEmpty) return slots;
+
+    return <OverrideSlot>[...slots, ...copies];
   }
 
   /// `Mon 2026-08-10 – Fri 2026-08-14`, or a single date when it is one day.

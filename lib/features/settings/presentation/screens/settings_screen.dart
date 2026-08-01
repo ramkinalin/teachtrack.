@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/widgets/sheet_layout.dart';
 import '../../../events/presentation/providers/event_providers.dart';
 import '../../../profile/presentation/profile_form.dart';
 import '../../../profile/presentation/profile_providers.dart';
@@ -47,6 +48,13 @@ class SettingsScreen extends ConsumerWidget {
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.pushNamed(AppRoutes.timetableName),
+          ),
+          ListTile(
+            leading: const Icon(Icons.event_note_outlined),
+            title: const Text('Exams and holidays'),
+            subtitle: const Text('Days when the normal timetable steps aside'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed(AppRoutes.overridesName),
           ),
           ListTile(
             leading: const Icon(Icons.event_outlined),
@@ -151,13 +159,7 @@ class SettingsScreen extends ConsumerWidget {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (BuildContext sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.md,
-          right: AppSpacing.md,
-          top: AppSpacing.md,
-          bottom:
-              AppSpacing.md + MediaQuery.viewInsetsOf(sheetContext).bottom,
-        ),
+        padding: sheetContentPadding(sheetContext),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

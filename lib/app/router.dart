@@ -9,6 +9,7 @@ import '../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../features/profile/presentation/profile_providers.dart';
 import '../features/settings/presentation/screens/manage_subjects_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
+import '../features/timetable/presentation/screens/overrides_screen.dart';
 import '../features/timetable/presentation/screens/timetable_editor_screen.dart';
 import '../features/timetable/presentation/screens/today_screen.dart';
 import 'app_routes.dart';
@@ -59,6 +60,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: AppRoutes.eventsName,
         builder: (BuildContext context, GoRouterState state) =>
             const EventsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.overridesPath,
+        name: AppRoutes.overridesName,
+        builder: (BuildContext context, GoRouterState state) =>
+            const OverridesScreen(),
       ),
       GoRoute(
         path: AppRoutes.settingsPath,

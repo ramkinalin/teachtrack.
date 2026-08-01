@@ -61,6 +61,17 @@ final Provider<TimetableRepository> timetableRepositoryProvider =
   );
 });
 
+/// Every override, for the list screen. Refreshes when any is saved or deleted.
+final overridesListProvider = Provider<List<ScheduleOverride>>((ref) {
+  final OverrideRepository repository = ref.watch(overrideRepositoryProvider);
+
+  final StreamSubscription<void> subscription =
+      repository.watchChanges().listen((void _) => ref.invalidateSelf());
+  ref.onDispose(subscription.cancel);
+
+  return repository.all();
+});
+
 /// The override covering the shown day, or `null` on a normal day.
 ///
 /// Self-invalidates when overrides change, so the value itself is the signal —

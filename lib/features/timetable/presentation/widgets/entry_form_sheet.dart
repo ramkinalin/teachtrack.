@@ -6,6 +6,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/day_time.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/widgets/sheet_layout.dart';
 import '../../../profile/presentation/profile_providers.dart';
 import '../../domain/entities/period.dart';
 import '../../domain/entities/timetable_entry.dart';
@@ -101,13 +102,9 @@ class _EntryFormSheetState extends ConsumerState<EntryFormSheet> {
     final List<String> subjects = ref.watch(subjectsProvider);
 
     return Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.md,
-        right: AppSpacing.md,
-        top: AppSpacing.md,
-        // Keeps the save button above the keyboard on small phones.
-        bottom: AppSpacing.md + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      // Keeps the buttons clear of both the keyboard and the system navigation
+      // bar — padding for only one leaves them half-hidden behind the other.
+      padding: sheetContentPadding(context),
       child: SingleChildScrollView(
         child: Form(
           key: _formKey,

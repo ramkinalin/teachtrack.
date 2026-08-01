@@ -142,6 +142,158 @@ void main() {
     });
   });
 
+  group('dates', () {
+    test('lists every date in the range, in order', () {
+      expect(
+        override(endDate: DateTime(2026, 8, 2)).dates,
+        <DateTime>[
+          DateTime(2026, 7, 30),
+          DateTime(2026, 7, 31),
+          DateTime(2026, 8, 1),
+          DateTime(2026, 8, 2),
+        ],
+      );
+    });
+
+    test('a single-day override lists one date', () {
+      expect(override(endDate: thursday).dates, <DateTime>[thursday]);
+    });
+  });
+
+  group('slotsWithDayCopied', () {
+    int nextId = 0;
+    String idFor(OverrideSlot _) => 'copy-${nextId++}';
+
+    setUp(() => nextId = 0);
+
+    test('duplicates a day onto another, keeping what was already there', () {
+      final ScheduleOverride source = override(
+        slots: <OverrideSlot>[
+          slot(id: 'a', title: 'Maths'),
+          slot(
+            id: 'b',
+            startMinute: 13 * 60,
+            endMinute: 15 * 60,
+            title: 'Science',
+          ),
+          slot(id: 'existing', date: friday, title: 'Already on Friday'),
+        ],
+      );
+
+      final List<OverrideSlot> next = source.slotsWithDayCopied(
+        from: thursday,
+        to: friday,
+        idFor: idFor,
+      );
+
+      expect(next, hasLength(5));
+      final List<OverrideSlot> fridaySlots =
+          source.copyWith(slots: next).slotsOn(friday);
+
+      // Compared as a set: two of these start at 09:00, and Dart's sort makes no
+      // stability guarantee, so asserting an exact order would be testing the
+      // sort implementation rather than the copy.
+      expect(fridaySlots, hasLength(3));
+      expect(
+        fridaySlots.map((OverrideSlot s) => s.title).toSet(),
+        <String>{'Maths', 'Science', 'Already on Friday'},
+        reason: 'the copies were added and nothing was replaced',
+      );
+    });
+
+    test('copies carry new ids so sessions cannot be shared', () {
+      final ScheduleOverride source =
+          override(slots: <OverrideSlot>[slot(id: 'a')]);
+
+      final List<OverrideSlot> next = source.slotsWithDayCopied(
+        from: thursday,
+        to: friday,
+        idFor: idFor,
+      );
+
+      expect(next.map((OverrideSlot s) => s.id).toSet(), hasLength(2));
+      expect(next.last.id, 'copy-0');
+    });
+
+    test('copies every field except the date and id', () {
+      final ScheduleOverride source = override(
+        slots: <OverrideSlot>[
+          slot(isInvigilating: true, isMySubject: true, location: 'Hall B'),
+        ],
+      );
+
+      final OverrideSlot copy = source
+          .slotsWithDayCopied(from: thursday, to: friday, idFor: idFor)
+          .last;
+
+      expect(copy.date, friday);
+      expect(copy.title, 'Mathematics paper 1');
+      expect(copy.classGroup, '8B');
+      expect(copy.location, 'Hall B');
+      expect(copy.isInvigilating, isTrue);
+      expect(copy.isMySubject, isTrue);
+      expect(copy.startMinute, 9 * 60);
+      expect(copy.endMinute, 11 * 60);
+    });
+
+    test('refuses a target outside the range', () {
+      final ScheduleOverride source =
+          override(slots: <OverrideSlot>[slot()]);
+
+      expect(
+        source.slotsWithDayCopied(
+          from: thursday,
+          to: DateTime(2026, 8, 20),
+          idFor: idFor,
+        ),
+        source.slots,
+      );
+    });
+
+    test('copying a day onto itself changes nothing', () {
+      final ScheduleOverride source =
+          override(slots: <OverrideSlot>[slot()]);
+
+      expect(
+        source.slotsWithDayCopied(
+          from: thursday,
+          to: thursday,
+          idFor: idFor,
+        ),
+        source.slots,
+      );
+    });
+
+    test('copying an empty day changes nothing', () {
+      final ScheduleOverride source =
+          override(slots: <OverrideSlot>[slot(date: friday)]);
+
+      expect(
+        source.slotsWithDayCopied(from: thursday, to: friday, idFor: idFor),
+        source.slots,
+      );
+    });
+
+    test('the result still passes validation', () async {
+      final ScheduleOverride source =
+          override(slots: <OverrideSlot>[slot(), slot(id: 'b', title: 'Two')]);
+
+      final ScheduleOverride copied = source.copyWith(
+        slots: source.slotsWithDayCopied(
+          from: thursday,
+          to: friday,
+          idFor: idFor,
+        ),
+      );
+
+      expect(
+        overrides.validate(copied).isOk,
+        isTrue,
+        reason: 'no duplicate ids, and every copy lands inside the range',
+      );
+    });
+  });
+
   group('validate', () {
     test('rejects a blank name', () {
       expect(
