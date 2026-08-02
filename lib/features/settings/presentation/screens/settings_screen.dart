@@ -55,6 +55,16 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.pushNamed(AppRoutes.timetableName),
           ),
           ListTile(
+            leading: const Icon(Icons.schedule_outlined),
+            title: const Text('School timings'),
+            subtitle: Text(
+              '${ref.watch(periodsProvider).length} periods · tap to change '
+              'lengths',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed(AppRoutes.periodsName),
+          ),
+          ListTile(
             leading: const Icon(Icons.event_note_outlined),
             title: const Text('Exams and holidays'),
             subtitle: const Text('Days when the normal timetable steps aside'),
